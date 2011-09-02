@@ -92,7 +92,7 @@ function writeByteStuffed(socket, string, callback) {
 function dispatch(state, imapMessages, socket, p, callback) {
     function capa() {
         Seq().seq(function () {
-            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\n.\r\n', this);
+            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\nUIDL\r\n.\r\n', this);
         }).catch(callback);
     }
 
