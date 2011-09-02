@@ -169,6 +169,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
                     callback("Bad message number");
                 }
                 else {
+                    console.log("Responding to RETR for message " + p.messageNumber);
                     Seq()
                         .seq(function () { socket.write('+OK\r\n', this); })
                         .extend(Object.keys(m.message.headers))
@@ -265,7 +266,9 @@ function startup(imapMessages, lastImapPollTime, callback) {
         });
     });
 
-    server.listen(opts.pop_port);
+    server.listen(opts.pop_port, function () {
+        console.log("Connection to POP server");
+    });
     console.log("POP server started");
 }
 
