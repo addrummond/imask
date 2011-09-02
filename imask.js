@@ -30,7 +30,7 @@ function parsePop(s) {
         case 'APOP': case 'CAPA': {
             return { command: firstWord }; // APOP not implemented so we don't bother parsing it properly.
         } break;
-        case 'LIST': case 'RETR': case 'DELE': {
+        case 'LIST': case 'RETR': case 'DELE': case 'UIDL': {
             var m = remainder.match(/^(\d+)\s*$/);
             if ((firstWord == "RETR" || firstWord == "DELE") && !m)
                 return firstWord + " command requires message number";
@@ -218,6 +218,27 @@ function dispatch(state, imapMessages, socket, p, callback) {
                     octetSize += new Buffer(imapMessages.messages[k].body).length;
                 }
                 socket.write('+OK ' + numMessages + ' ' + octetSize + '\r\n', 'utf-8', callback);
+            } break;
+            case 'UIDL': {
+                if (typeof(p.messageNumber) != "undefined") {
+                    var m = imapMessages.messages[p.messageNumber];
+                    if (! m) {
+                        socket.write("-ERR Bad message number\r\n");
+                        callback("Bad message number");
+                    }
+                    socket.write('+OK ' + p.messageNumber + ' ' + m.message.id);
+                }
+                else {
+                    Seq()
+                        .seq(function () { socket.write('+OK ' + Object.keys(imapMessages.messages).length + ' messages\r\n', this); })
+                        .extend(Object.keys(imapMessages.messages))
+                        .forEach(function (k, i) {
+                            var message = imapMessages.messages[k];
+                            socket.write(message.number + ' ' + message.message.id + '\r\n', this);
+                        })
+                        .seq(function () { socket.write('.\r\n', this); })
+                        .catch(callback);
+                }
             } break;
             default: {
                 closeSocketWithError(socket, "Bad command in authenticated state", callback);
