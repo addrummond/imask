@@ -27,8 +27,8 @@ function parsePop(s) {
                 return { command: firstWord, word: m[1] }
             }
         } break;
-        case 'APOP': {
-            return { command: 'APOP' }; // Not implemented so we don't bother parsing it properly.
+        case 'APOP': case 'CAPA': {
+            return { command: firstWord }; // Not implemented so we don't bother parsing it properly.
         } break;
         case 'LIST': case 'RETR': case 'DELE': {
             var m = remainder.match(/^(\d+)\s*$/);
@@ -91,7 +91,7 @@ function writeByteStuffed(socket, string, callback) {
 
 function dispatch(state, imapMessages, socket, p, callback) {
     if (state.state == 'waitinguser') {
-        if (p.command == 'APOP') {
+        if (p.command == 'APOP' || p.command == 'CAPA') {
             Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
         }
         else {
@@ -108,7 +108,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
         }
     }
     else if (state.state == 'waitingpass') {
-        if (p.command == 'APOP') {
+        if (p.command == 'APOP' || p.command == 'CAPA') {
             Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
         }
         else {
