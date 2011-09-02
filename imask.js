@@ -28,7 +28,7 @@ function parsePop(s) {
             }
         } break;
         case 'APOP': case 'CAPA': {
-            return { command: firstWord }; // Not implemented so we don't bother parsing it properly.
+            return { command: firstWord }; // APOP not implemented so we don't bother parsing it properly.
         } break;
         case 'LIST': case 'RETR': case 'DELE': {
             var m = remainder.match(/^(\d+)\s*$/);
@@ -90,9 +90,18 @@ function writeByteStuffed(socket, string, callback) {
 }
 
 function dispatch(state, imapMessages, socket, p, callback) {
+    function capa() {
+        Seq().seq(function () {
+            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\n.\r\n', this);
+        }).catch(callback);
+    }
+
     if (state.state == 'waitinguser') {
-        if (p.command == 'APOP' || p.command == 'CAPA') {
+        if (p.command == 'APOP') {
             Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
+        }
+        else if (p.command == 'CAPA') {
+            capa();
         }
         else {
             if (p.command != 'USER') {
@@ -110,6 +119,9 @@ function dispatch(state, imapMessages, socket, p, callback) {
     else if (state.state == 'waitingpass') {
         if (p.command == 'APOP' || p.command == 'CAPA') {
             Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
+        }
+        else if (p.command == 'CAPA') {
+            capa();
         }
         else {
             if (p.command != 'PASS') {
