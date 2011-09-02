@@ -158,7 +158,9 @@ function dispatch(state, imapMessages, socket, p, callback) {
                         .forEach(function (k, i) {
                             var message = imapMessages.messages[k];
                             socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
-                        });
+                        })
+                        .seq(function () { socket.write('.\r\n', this); })
+                        .catch(callback);
                 }
             } break;
             case 'RETR': {
