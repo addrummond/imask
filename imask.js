@@ -292,7 +292,7 @@ function retreiveFromImap(opts, callback) {
         .seq(function (xs) { console.log("Fetching " + xs.length + " messages..."); this(null, xs); })
         .flatten()
         .parMap_(function (this_, id, index) {
-            console.log("Fetching message " + id);
+            console.log("Fetching message [IMAP id " + id + "]");
             this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
                 imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
