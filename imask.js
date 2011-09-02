@@ -155,9 +155,9 @@ function dispatch(state, imapMessages, socket, p, callback) {
                     Seq()
                         .seq(function () { socket.write('+OK ' + imapMessages.messages.length + ' messages\r\n', this); })
                         .extend(ms)
-                        .forEach(function (k) {
+                        .forEach(function (k, i) {
                             var message = imapMessages.messages[k];
-                            socket.write(message.message.id + ' ' + getMessageOctetSize(message) + '\r\n', this);
+                            socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
                         });
                 }
             } break;
@@ -288,7 +288,7 @@ function retreiveFromImap(opts, callback) {
         .seq(function () { imap.search(['UNSEEN'], this); })
         .seq(function (xs) { console.log("Fetching " + xs.length + " messages..."); this(null, xs); })
         .flatten()
-        .parMap_(function (this_, id) {
+        .parMap_(function (this_, id, index) {
             console.log("Fetching message " + id);
             this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
@@ -298,7 +298,7 @@ function retreiveFromImap(opts, callback) {
                         msgText.push(chunk);
                     });
                     m2.on('end', function () {
-                        this_(null, { message: m, body: msgText.join('') });
+                        this_(null, { number: index+1, message: m, body: msgText.join('') });
                     });
                 });
             });
@@ -315,12 +315,12 @@ function retreiveFromImap(opts, callback) {
 // POP server quickly with cached messages).
 //
 function pollImap(opts, callback) {
-    var messages = { }; // Keyed by IMAP messaged id.
+    var messages = { }; // Keyed by POP message number.
 
     retreiveFromImap(opts, function (e, messages_) {
         messages = { };
         for (var i = 0; i < messages_.length; ++i) {
-            messages[messages_[i].message.id] = messages_[i];
+            messages[messages_[i].number] = messages_[i];
         }
 
         if (e) callback(e);
