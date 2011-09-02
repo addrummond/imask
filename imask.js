@@ -92,7 +92,7 @@ function writeByteStuffed(socket, string, callback) {
 function dispatch(state, imapMessages, socket, p, callback) {
     function capa() {
         Seq().seq(function () {
-            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\n.\r\n', this);
+            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\n.\r\n', this);
         }).catch(callback);
     }
 
@@ -138,6 +138,9 @@ function dispatch(state, imapMessages, socket, p, callback) {
     }
     else if (state.state == 'authenticated') {
         switch (p.command) {
+            case 'CAPA': {
+                capa();
+            } break;
             case 'LIST': {
                 var ms = false;
                 if (p.messageNumber)
