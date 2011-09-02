@@ -40,7 +40,7 @@ function parsePop(s) {
             return { command: firstWord };
         } break;
         default: {
-            return "Bad or unimplemented command";
+            return "Bad or unimplemented command: " + s;
         }
     }
 }
