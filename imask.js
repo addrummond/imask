@@ -3,7 +3,7 @@ var net = require('net'),
     util = require('util'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
-    Seq = require('Seq');
+    Seq = require('seq');
 
 var IMAP_POLL_INTERVAL = 15 * 60 * 60 * 1000; // Milliseconds.
 
