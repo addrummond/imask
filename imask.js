@@ -153,7 +153,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 }
                 else {
                     Seq()
-                        .seq(function () { socket.write('+OK ' + imapMessages.messages.length + ' messages\r\n', this); })
+                        .seq(function () { socket.write('+OK ' + Object.keys(imapMessages.messages).length + ' messages\r\n', this); })
                         .extend(ms)
                         .forEach(function (k, i) {
                             var message = imapMessages.messages[k];
@@ -210,7 +210,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 Seq().seq(function () { socket.write('+OK\r\n', this); }).catch(callback);
             } break;
             case 'STAT': {
-                var numMessages = imapMessages.messages.length;
+                var numMessages = Object.keys(imapMessages.messages).length;
                 var octetSize = 0;
                 for (k in imapMessages.messages) {
                     octetSize += new Buffer(imapMessages.messages[k].body).length;
