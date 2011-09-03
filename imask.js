@@ -294,7 +294,7 @@ function retreiveFromImap(opts, sinceDateString, callback) {
         password: opts.imapPassword,
         host: opts.imapHost,
         port: opts.imapPort,
-        secure: opts.port == 993 ? true : false
+        secure: opts.port == 993
     });
 
     var ret;
