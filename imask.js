@@ -295,7 +295,7 @@ function startup(imapMessages, callback) {
                             msgno++
                         }
                     }
-                    for (var i = 0; i < newks.length; ++i) {
+                    for (var i = 0; i < knewks.length; ++i) {
                         knew[knewks[i]].message.number = msgno;
                         imapMessages.messages[msgno] = knew[knewks[i]];
                         msgno++;
