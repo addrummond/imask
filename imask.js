@@ -89,17 +89,15 @@ function writeByteStuffed(socket, string, callback) {
 
 function dispatch(state, socket, p, callback) {
     function capa() {
-        Seq().seq(function () {
-            socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\nUIDL\r\n.\r\n', this);
-        }).catch(callback);
+        socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\nUIDL\r\n.\r\n', callback);
     }
 
     if (state.state == 'waitinguser') {
         if (p.command == 'APOP') {
-            Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
+            socket.write('-ERR Not implemented\r\n', callback);
         }
         else if (p.command == 'CAPA') {
-            capa();
+            capa();   
         }
         else {
             if (p.command != 'USER') {
@@ -116,7 +114,7 @@ function dispatch(state, socket, p, callback) {
     }
     else if (state.state == 'waitingpass') {
         if (p.command == 'APOP' || p.command == 'CAPA') {
-            Seq().seq(function () { socket.write('-ERR Not implemented\r\n', this); }).catch(callback);
+            socket.write('-ERR Not implemented\r\n', callback);
         }
         else if (p.command == 'CAPA') {
             capa();
@@ -150,8 +148,7 @@ function dispatch(state, socket, p, callback) {
                 else ms = Object.keys(IMAP_MESSAGES.messages);
 
                 if (ms === false) {
-                    socket.write('-ERR Bad message number\r\n');
-                    callback("Bad message number");
+                    socket.write('-ERR Bad message number\r\n', callback);
                 }
                 else {
                     Seq()
@@ -161,7 +158,7 @@ function dispatch(state, socket, p, callback) {
                             var message = IMAP_MESSAGES.messages[k];
                             socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
                         })
-                        .seq(function () { socket.write('.\r\n', this); })
+                        .seq(function () { socket.write('.\r\n', callback); })
                         .catch(callback);
                 }
             } break;
@@ -169,8 +166,7 @@ function dispatch(state, socket, p, callback) {
                 // TODO: Inefficient linear search; should be in a dictionary.
                 var m = IMAP_MESSAGES.messages[p.messageNumber];
                 if (! m) {
-                    socket.write('-ERR Bad message number\r\n');
-                    callback("Bad message number");
+                    socket.write('-ERR Bad message number\r\n', callback);
                 }
                 else {
                     console.log("Responding to RETR for message " + p.messageNumber);
@@ -186,7 +182,7 @@ function dispatch(state, socket, p, callback) {
                         .seq(function () {
                             m.retreived = true;
                             IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.push(m.message.id);
-                            this();
+                            callback();
                         })
                         .catch(callback);
                 }
@@ -194,13 +190,12 @@ function dispatch(state, socket, p, callback) {
             case 'DELE': {
                 var m = IMAP_MESSAGES.messages[p.messageNumber];
                 if (! m) {
-                    socket.write('-ERR Bad message number\r\n');
-                    callback("Bad message number");
+                    socket.write('-ERR Bad message number\r\n', callback);
                 }
                 else {
                     IMAP_MESSAGES.deleted[p.messageNumber] = IMAP_MESSAGES.messages[p.messageNumber];
                     delete IMAP_MESSAGES.messages[p.messageNumber];
-                    Seq().seq(function () { socket.write('+OK\r\n', this); }).catch(callback);
+                    socket.write('+OK\r\n', callback);
                 }
             } break;
             case 'QUIT': {
@@ -208,7 +203,7 @@ function dispatch(state, socket, p, callback) {
                     delete IMAP_MESSAGES.messages[k];
                 Seq()
                     .seq(function () { socket.write('+OK\r\n', this); })
-                    .seq(function () { socket.destroySoon(); })
+                    .seq(function () { socket.destroySoon(); callback(); })
                     .catch(callback);
             } break;
             case 'RSET': {
@@ -216,7 +211,7 @@ function dispatch(state, socket, p, callback) {
                     IMAP_MESSAGES.messages[k] = IMAP_MESSAGES.deleted[k];
                     delete IMAP_MESSAGES.deleted[k];
                 }
-                Seq().seq(function () { socket.write('+OK\r\n', this); }).catch(callback);
+                socket.write('+OK\r\n', callback);
             } break;
             case 'STAT': {
                 var numMessages = Object.keys(IMAP_MESSAGES.messages).length;
@@ -230,10 +225,9 @@ function dispatch(state, socket, p, callback) {
                 if (typeof(p.messageNumber) != "undefined") {
                     var m = IMAP_MESSAGES.messages[p.messageNumber];
                     if (! m) {
-                        socket.write("-ERR Bad message number\r\n");
-                        callback("Bad message number");
+                        Seq().seq(function () { socket.write('-ERR Bad message number\r\n'); }).catch(callback);x
                     }
-                    socket.write('+OK ' + p.messageNumber + ' ' + m.message.id);
+                    socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
                 }
                 else {
                     Seq()
@@ -243,7 +237,7 @@ function dispatch(state, socket, p, callback) {
                             var message = IMAP_MESSAGES.messages[k];
                             socket.write(message.number + ' ' + message.message.id + '\r\n', this);
                         })
-                        .seq(function () { socket.write('.\r\n', this); })
+                        .seq(function () { socket.write('.\r\n', callback); })
                         .catch(callback);
                 }
             } break;
