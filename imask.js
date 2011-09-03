@@ -447,6 +447,8 @@ if (require.main === module) {
                 process.exit(1);
             }
 
+            log("Imask started");
+
             function startpop() {
                 log("Starting POP server...");
                 Seq().seq(function () {
