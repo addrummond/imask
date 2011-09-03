@@ -267,6 +267,7 @@ function startup(imapMessages, callback) {
 
                     for (k in imapMessages)
                         imapMessages[k] = imapMessages_[k];
+                    imapMessages.messages = { }
 
                     // Now we have two lists of messages, the old and the new.
                     // Prune retreived messages from the old list, then
@@ -274,11 +275,11 @@ function startup(imapMessages, callback) {
                     //
                     // All of this is just to stop a memory leak (we don't want
                     // to keep every old message ever in memory).
+                    console.log("Merging old and new...");
                     var old = imapMessages_.messages;
                     var knew = imapMessages.messages;
-                    imapMessages.messages = { };
                     var oldks = Object.keys(old.sort());
-                    var knewks = Objecy.keys(knew.sort());
+                    var knewks = Object.keys(knew.sort());
                     var msgno = 1;
                     for (var i = 0; i < oldks.length; ++i) {
                         if (! old[oldks[i]].retreived) {
@@ -292,6 +293,7 @@ function startup(imapMessages, callback) {
                         imapMessages.messages[msgno] = knew[knewks[i]];
                         msgno++;
                     }
+                    console.log("Now holding " + Object.keys(imapMessages.messages).length + " messages");
                 });
             }
 
