@@ -3,7 +3,8 @@ var net = require('net'),
     util = require('util'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
-    Seq = require('seq');
+    Seq = require('seq'),
+    assert = require('assert');
 
 IMAP_MESSAGES = null; // Will be an imap-message-id-keyed dict.
 
@@ -24,8 +25,10 @@ function parsePop(s) {
     switch (firstWord) {
         case 'USER': case 'PASS': {
             var m = /^([^\s]+)\s*$/.exec(remainder);
-            if (! m) return "Bad '" + firstWord + "' command (" + s + ")";
-            else return { command: firstWord, word: m[1] }
+            if (! m)
+                return "Bad '" + firstWord + "' command (" + s + ")";
+            else
+                return { command: firstWord, word: m[1] }
         } break;
         case 'APOP': case 'CAPA': case 'NOOP':
         case 'RSET': case 'QUIT': case 'STAT': {
@@ -243,7 +246,7 @@ function dispatch(state, socket, p, callback) {
             }
         }
     }
-    else callback("Unknown state");
+    else assert.ok(false, "Bad state in 'dispatch'");
 }
 
 function startup(createServerFunc, callback) {
