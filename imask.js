@@ -5,8 +5,6 @@ var net = require('net'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq');
 
-IMAP_POLL_INTERVAL = 0.5 * 60 * 1000; // Milliseconds.
-
 IMAP_MESSAGES = null; // Will be an imap-message-id-keyed dict.
 
 function getFirstWord(s) {
@@ -470,7 +468,7 @@ if (require.main === module) {
                     );
                 });
 
-                setInterval(pollImapAgain, IMAP_POLL_INTERVAL);
+                setInterval(pollImapAgain, opts.imapPollIntervalSeconds * 1000);
             }
 
             if (opts.popUsername.charAt(0) == '+') {
