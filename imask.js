@@ -27,7 +27,7 @@ function parsePop(s) {
                 return { command: firstWord, word: m[1] }
             }
         } break;
-        case 'APOP': case 'CAPA': {
+        case 'APOP': case 'CAPA': case 'NOOP': {
             return { command: firstWord }; // APOP not implemented so we don't bother parsing it properly.
         } break;
         case 'LIST': case 'RETR': case 'DELE': case 'UIDL': {
@@ -139,6 +139,9 @@ function dispatch(state, imapMessages, socket, p, callback) {
     }
     else if (state.state == 'authenticated') {
         switch (p.command) {
+            case 'NOOP': {
+                socket.write('+OK\r\n', callback);
+            } break;
             case 'CAPA': {
                 capa();
             } break;
