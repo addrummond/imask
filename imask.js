@@ -185,7 +185,11 @@ function dispatch(state, imapMessages, socket, p, callback) {
                         })
                         .seq(function () { socket.write('\r\n', this); })
                         .seq(function () { writeByteStuffed(socket, m.body, this); })
-                        .seq(function () { m.retreived = true; this(); })
+                        .seq(function () {
+                            m.retreived = true;
+                            IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.push(m.message.id);
+                            this();
+                        })
                         .catch(callback);
                 }
             } break;
@@ -327,6 +331,7 @@ function startup(imapMessages, callback) {
     console.log("POP server started");
 }
 
+IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
 function retreiveFromImap(opts, callback) {
     imap = new ImapConnection({
         username: opts.user,
@@ -341,7 +346,7 @@ function retreiveFromImap(opts, callback) {
         .seq(function () { imap.connect(this); })
         .seq(function () { imap.getBoxes(this); })
         .seq(function (boxes) {
-            imap.openBox(opts.boxname, true/*readonly*/, this);
+            imap.openBox(opts.boxname, false/*read/write access*/, this);
         })
         .seq(function () { imap.search(['UNSEEN'], this); })
         .seq(function (xs) { console.log("Fetching " + xs.length + " messages..."); this(null, xs); })
@@ -362,7 +367,16 @@ function retreiveFromImap(opts, callback) {
             });
         })
         .unflatten()
-        .seq(function (messages) { imap.logout(); callback(null, messages); })
+        .seq(function (messages) {
+            console.log(messages);
+            // Finally, mark those messages as unseed which were retreived via the POP
+            // server at some earlier point.
+            imap.delFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'UNSEEN', function (e) {
+                IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
+                if (e) callback(e);
+                else imap.logout(function (e) { console.log("!!!"); callback(e, messages); });
+            });
+        })
         .catch(callback);
 }
 
