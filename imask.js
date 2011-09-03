@@ -27,7 +27,8 @@ function parsePop(s) {
                 return { command: firstWord, word: m[1] }
             }
         } break;
-        case 'APOP': case 'CAPA': case 'NOOP': {
+        case 'APOP': case 'CAPA': case 'NOOP':
+        case 'RSET': case 'QUIT': case 'STAT': {
             return { command: firstWord }; // APOP not implemented so we don't bother parsing it properly.
         } break;
         case 'LIST': case 'RETR': case 'DELE': case 'UIDL': {
@@ -35,9 +36,6 @@ function parsePop(s) {
             if ((firstWord == "RETR" || firstWord == "DELE") && !m)
                 return firstWord + " command requires message number";
             return { command: firstWord, messageNumber: m ? m[1] : undefined };
-        } break;
-        case 'RSET': case 'QUIT': case 'STAT': {
-            return { command: firstWord };
         } break;
         default: {
             return "Bad or unimplemented command: " + s;
