@@ -227,10 +227,8 @@ function dispatch(state, socket, p, callback) {
             case 'UIDL': {
                 if (typeof(p.messageNumber) != "undefined") {
                     var m = IMAP_MESSAGES.messages[p.messageNumber];
-                    if (! m) {
-                        Seq().seq(function () { socket.write('-ERR Bad message number\r\n'); }).catch(callback);x
-                    }
-                    socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
+                    if (! m) socket.write('-ERR Bad message number\r\n', callback);
+                    else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
                 }
                 else {
                     Seq()
