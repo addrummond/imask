@@ -359,9 +359,9 @@ function pollImap(opts, callback) {
     console.log("Polling the IMAP server...");
     retreiveFromImap(opts, function (e, messages_) {
         messages = { };
-        for (var i = 0; i < messages_.length; ++i) {
-            messages[messages_[i].number] = messages_[i];
-        }
+        messages_.forEach(function (m) {
+            messages[m.number] = m;
+        });
 
         if (e) callback(e);
         else {
