@@ -270,7 +270,7 @@ function startup(createServerFunc, callback) {
         var currentBuffer = [];
         socket.on('data', function (s) {
             currentBuffer.push(s);
-            if (s.match(/\r\n$/)) {
+            if (s.match(opts.popSuperStrict ? /\r\n$/ : /\r?\n$/)) {
                 var p = parsePop(currentBuffer.join(""));
                 currentBuffer = [];
 
@@ -481,7 +481,13 @@ if (require.main === module) {
                         process.exit(1);
                     }
                     else {
-                        IMAP_MESSAGES = JSON.parse(buffer);
+                        try {
+                            IMAP_MESSAGES = { messages: JSON.parse(buffer), deleted: { } };
+                        }
+                        catch (err) {
+                            console.log("Error parsing stored mailbox -- " + err);
+                            process.exit(1);
+                        }
                         console.log("Using stored mailbox");
                         startpop();
                     }
