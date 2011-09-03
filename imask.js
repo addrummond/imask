@@ -371,11 +371,14 @@ function retreiveFromImap(opts, callback) {
             console.log(messages);
             // Finally, mark those messages as unseed which were retreived via the POP
             // server at some earlier point.
-            imap.delFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'UNSEEN', function (e) {
-                IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
-                if (e) callback(e);
-                else imap.logout(function (e) { console.log("!!!"); callback(e, messages); });
-            });
+            if (IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
+                imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
+                    IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
+                    if (e) callback(e);
+                    else imap.logout(function (e) { console.log("!!!"); callback(e, messages); });
+                });
+            }
+            else imap.logout(function (e) { callback(e, messages); });
         })
         .catch(callback);
 }
