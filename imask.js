@@ -7,6 +7,10 @@ var net = require('net'),
 
 IMAP_MESSAGES = null; // Will be an imap-message-id-keyed dict.
 
+function log(s) {
+    console.log(new Date().toJSON() + ' ' + s);
+}
+
 function getFirstWord(s) {
     var a = s.split(/\s+/);
     return [a[0], a.slice(1).join(' ')];
@@ -129,7 +133,7 @@ function dispatch(state, socket, p, callback) {
             else {
                 state.state = 'authenticated';
                 socket.write('+OK Authenticated\r\n', callback);
-                console.log("User authenticated");
+                log("User authenticated");
             }
         }
     }
@@ -169,7 +173,7 @@ function dispatch(state, socket, p, callback) {
                     socket.write('-ERR Bad message number\r\n', callback);
                 }
                 else {
-                    console.log("Responding to RETR for message " + p.messageNumber);
+                    log("Responding to RETR for message " + p.messageNumber);
                     Seq()
                         .seq(function () { socket.write('+OK\r\n', this); })
                         .extend(Object.keys(m.message.headers))
@@ -265,15 +269,15 @@ function startup(createServerFunc, callback) {
                 currentBuffer = [];
 
                 if (typeof(p) == "string") {
-                    console.log("Bad command was recieved: " + p);
+                    log("Bad command was recieved: " + p);
                     socket.write("+ERR Bad command\r\n");
                     socket.destroySoon();
                 }
                 else {
                     dispatch(state, socket, p, function (e) {
                         if (e) {
-                            console.log("Connection error:");
-                            console.log(e);
+                            log("Connection error:");
+                            log(e);
                             socket.destroy();
                         }
                     });
@@ -283,7 +287,7 @@ function startup(createServerFunc, callback) {
     });
 
     server.listen(opts.popPort);
-    console.log("POP server started");
+    log("POP server started");
 }
 
 IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
@@ -304,10 +308,10 @@ function retreiveFromImap(opts, callback) {
             imap.openBox(opts.imapMailbox, false/*read/write access*/, this);
         })
         .seq(function () { imap.search(['UNSEEN'], this); })
-        .seq(function (xs) { console.log("Fetching " + xs.length + " messages..."); this(null, xs); })
+        .seq(function (xs) { log("Fetching " + xs.length + " messages..."); this(null, xs); })
         .flatten()
         .parMap_(function (this_, id, index) {
-            console.log("Fetching message [IMAP id " + id + "]");
+            log("Fetching message [IMAP id " + id + "]");
             this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
                 imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
@@ -327,7 +331,7 @@ function retreiveFromImap(opts, callback) {
             // server at some earlier point.
             if (IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
                 imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
-                    console.log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
+                    log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
                     IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
                     if (e) callback(e);
                     else imap.logout(function (e) { callback(e, messages); });
@@ -350,7 +354,7 @@ function pollImap(opts, callback) {
     var messages = { }; // Keyed by POP message number.
 
     IMAP_IS_BEING_POLLED = true;
-    console.log("Polling the IMAP server...");
+    log("Polling the IMAP server...");
     retreiveFromImap(opts, function (e, messages_) {
         messages = { };
         messages_.forEach(function (m) {
@@ -382,7 +386,7 @@ function pollImap(opts, callback) {
 
 function pollImapAgain() {
     if (IMAP_IS_BEING_POLLED) {
-        console.log("Attempt to poll while polling already underway");
+        log("Attempt to poll while polling already underway");
         return;
     }
 
@@ -399,7 +403,7 @@ function pollImapAgain() {
         //
         // All of this is just to stop a memory leak (we don't want
         // to keep every old message ever in memory).
-        console.log("Merging old and new...");
+        log("Merging old and new...");
         var old = IMAP_MESSAGES_.messages;
         var knew = IMAP_MESSAGES.messages;
         var oldks = Object.keys(old).sort();
@@ -417,13 +421,13 @@ function pollImapAgain() {
             IMAP_MESSAGES.messages[msgno] = knew[knewks[i]];
             msgno++;
         }
-        console.log("Now holding " + Object.keys(IMAP_MESSAGES.messages).length + " messages");
+        log("Now holding " + Object.keys(IMAP_MESSAGES.messages).length + " messages");
     });
 }
 
 if (require.main === module) {
     if (process.argv.length > 3) {
-        console.log("Bad usage");
+        log("Bad usage");
         process.exit(1);
     }
 
@@ -433,18 +437,18 @@ if (require.main === module) {
     var config = process.argv.length == 3 ? process.argv[2] : process.env.HOME + '/.imask';
     fs.readFile(config, function (e, buffer) {
         if (e) {
-            console.log("Unable to read configuration file " + config);
+            log("Unable to read configuration file " + config);
             process.exit(1);
         }
         else {
             try { opts = JSON.parse(buffer); }
             catch (err) {
-                console.log("Error parsing configuration file " + config + " as JSON -- " + err);
+                log("Error parsing configuration file " + config + " as JSON -- " + err);
                 process.exit(1);
             }
 
             function startpop() {
-                console.log("Starting POP server...");
+                log("Starting POP server...");
                 Seq().seq(function () {
                     startup(
                         function (callback) {
@@ -469,7 +473,7 @@ if (require.main === module) {
                 opts.popUsername = opts.popUsername.substr(1);
                 fs.readFile(opts.popUsername, function (e, buffer) {
                     if (e) {
-                        console.log("Unable to read mailbox file '" + opts.popUsername + "'");
+                        log("Unable to read mailbox file '" + opts.popUsername + "'");
                         process.exit(1);
                     }
                     else {
@@ -477,10 +481,10 @@ if (require.main === module) {
                             IMAP_MESSAGES = { messages: JSON.parse(buffer), deleted: { } };
                         }
                         catch (err) {
-                            console.log("Error parsing stored mailbox -- " + err);
+                            log("Error parsing stored mailbox -- " + err);
                             process.exit(1);
                         }
-                        console.log("Using stored mailbox");
+                        log("Using stored mailbox");
                         startpop();
                     }
                 });
@@ -488,9 +492,9 @@ if (require.main === module) {
             else {
                 pollImap(opts, function (e, messages) {
                     if (e) {
-                        console.log("Error polling imap server:");
-                        console.log(e);
-                        console.log("Exiting...");
+                        log("Error polling imap server:");
+                        log(e);
+                        log("Exiting...");
                         process.exit(1);
                     }
                     else {
