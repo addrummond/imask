@@ -167,7 +167,6 @@ function dispatch(state, socket, p, callback) {
                 }
             } break;
             case 'RETR': {
-                // TODO: Inefficient linear search; should be in a dictionary.
                 var m = IMAP_MESSAGES.messages[p.messageNumber];
                 if (! m) {
                     socket.write('-ERR Bad message number\r\n', callback);
