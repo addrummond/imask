@@ -4,7 +4,8 @@ Requires the seq and imap modules. I recommend the latest git version
 of the imap module, since it has some bugfixes which are not yet in
 the npm repo.
 
-==Setting up a server==
+Setting up a server
+===================
 
 Imask reads options from a configuration file, by default ~/.imask. To
 read from a different configuration file, pass the file name as the
@@ -39,7 +40,8 @@ Messages which are retrieved from the POP server are marked as unseen
 server must use PASS authentication with the username popUsername and
 the password popPassword.
 
-== Why you might want this ==
+Why you might want this
+=======================
 GMail can automatically poll a POP server for mail, but not an IMAP
 server. If your mail provider only provides IMAP, imask can be used to
 provide a POP server for GMail to poll.
