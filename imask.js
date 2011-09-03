@@ -435,6 +435,8 @@ if (require.main === module) {
         process.exit(1);
     }
 
+    var home = process.env.HOME;
+
     var opts;
     var config = process.argv.length == 3 ? process.argv[2] : process.env.HOME + '/.imask';
     fs.readFile(config, function (e, buffer) {
@@ -456,9 +458,9 @@ if (require.main === module) {
                         function (callback) {
                             if (opts.popUseSSL) {
                                 return tls.createServer({
-                                    key: fs.readFileSync(opts.popSSLKeyFile),
-                                    cert: fs.readFileSync(opts.popSSLCertFile),
-                                    ca: opts.popSSLCaFiles ? opts.popSSLCaFiles.map(function (f) { fs.readFileSync(f); }) : undefined
+                                    key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
+                                    cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
+                                    ca: opts.popSSLCaFiles ? opts.popSSLCaFiles.map(function (f) { fs.readFileSync(f.replace("~", home)); }) : undefined
                                 }, callback);
                             }
                             else return net.createServer.apply(net, arguments);
