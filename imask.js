@@ -183,7 +183,7 @@ function dispatch(state, socket, p, callback) {
                         .seq(function () { socket.write('\r\n', this); })
                         .seq(function () { writeByteStuffed(socket, m.body, this); })
                         .seq(function () {
-                            m.retreived = true;
+                            m.retrieved = true;
                             IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.push(m.message.id);
                             callback();
                         })
@@ -288,7 +288,7 @@ function startup(createServerFunc, callback) {
 }
 
 IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
-function retreiveFromImap(opts, sinceDateString, callback) {
+function retrieveFromImap(opts, sinceDateString, callback) {
     imap = new ImapConnection({
         username: opts.imapUsername,
         password: opts.imapPassword,
@@ -305,7 +305,7 @@ function retreiveFromImap(opts, sinceDateString, callback) {
             imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
         })
         .seq_(function (this_) {
-            // Mark those messages as unseen which were retreived via the POP server
+            // Mark those messages as unseen which were retrieved via the POP server
             // at some earlier point.
             if (!opts.imapReadOnly && IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
                 log("Marking messages as unseen...");
@@ -352,7 +352,7 @@ function xDaysBefore(x, date) {
 }
 
 //
-// This also writes the messages retreived to a file
+// This also writes the messages retrieved to a file
 // named after the POP mailbox in JSON format,
 // which is useful for debugging (can start up the
 // POP server quickly with cached messages).
@@ -365,7 +365,7 @@ function pollImap(opts, callback) {
     IMAP_IS_BEING_POLLED = true;
     log("Polling the IMAP server...");
 
-    retreiveFromImap(
+    retrieveFromImap(
         opts,
         xDaysBefore(opts.imapMessageAgeLimitDays, new Date()),
         function (e, messages_) {
@@ -412,7 +412,7 @@ function pollImapAgain() {
         IMAP_MESSAGES.messages = { }
         
         // Now we have two lists of messages, the old and the new.
-        // Prune retreived messages from the old list, then
+        // Prune retrieved messages from the old list, then
         // append the new list and renumber.
         //
         // All of this is just to stop a memory leak (we don't want
@@ -424,7 +424,7 @@ function pollImapAgain() {
         var knewks = Object.keys(knew).sort();
         var msgno = 1;
         for (var i = 0; i < oldks.length; ++i) {
-            if (! old[oldks[i]].retreived) {
+            if (! old[oldks[i]].retrieved) {
                 old[oldks[i]].message.number = msgno;
                 IMAP_MESSAGES.messages[msgno] = old[oldks[i]];
                 msgno++
