@@ -5,7 +5,7 @@ var net = require('net'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq');
 
-var IMAP_POLL_INTERVAL = 15 * 60 * 60 * 1000; // Milliseconds.
+var IMAP_POLL_INTERVAL = 0.5 * 60 * 1000; // Milliseconds.
 
 function getFirstWord(s) {
     var a = s.split(/\s+/);
@@ -180,7 +180,8 @@ function dispatch(state, imapMessages, socket, p, callback) {
                             socket.write(header + ': ' + m.message.headers[header][0] + '\r\n');
                         })
                         .seq(function () { socket.write('\r\n', this); })
-                        .seq(function () { writeByteStuffed(socket, m.body,  this); })
+                        .seq(function () { writeByteStuffed(socket, m.body, this); })
+                        .seq(function () { m.retreived = true; this(); })
                         .catch(callback);
                 }
             } break;
@@ -248,7 +249,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
     else callback("Unknown state");
 }
 
-function startup(imapMessages, lastImapPollTime, callback) {
+function startup(imapMessages, callback) {
     var server = net.createServer(function (socket) {
         socket.setEncoding('utf-8');
 
@@ -259,10 +260,37 @@ function startup(imapMessages, lastImapPollTime, callback) {
         var currentBuffer = [];
         socket.on('data', function (s) {
             // See if it's time to poll the IMAP server again.
-            if (new Date().getTime() - lastImapPollTime > IMAP_POLL_INTERVAL) {
-                pollImap(opts/*global*/, function (imapMessages_) {
+            if (!IMAP_IS_BEING_POLLED && new Date().getTime() - LAST_IMAP_POLL_TIME > IMAP_POLL_INTERVAL) {
+                pollImap(opts/*global*/, function (e, imapMessages_) {
+                    if (e) callback(); return;
+
                     for (k in imapMessages)
                         imapMessages[k] = imapMessages_[k];
+
+                    // Now we have two lists of messages, the old and the new.
+                    // Prune retreived messages from the old list, then
+                    // append the new list and renumber.
+                    //
+                    // All of this is just to stop a memory leak (we don't want
+                    // to keep every old message ever in memory).
+                    var old = imapMessages_.messages;
+                    var knew = imapMessages.messages;
+                    imapMessages.messages = { };
+                    var oldks = Object.keys(old.sort());
+                    var knewks = Objecy.keys(knew.sort());
+                    var msgno = 1;
+                    for (var i = 0; i < oldks.length; ++i) {
+                        if (! old[oldks[i]].retreived) {
+                            old[oldks[i]].message.number = msgno;
+                            imapMessages.messages[msgno] = old[oldks[i]];
+                            msgno++
+                        }
+                    }
+                    for (var i = 0; i < newks.length; ++i) {
+                        knew[knewks[i]].message.number = msgno;
+                        imapMessages.messages[msgno] = knew[knewks[i]];
+                        msgno++;
+                    }
                 });
             }
 
@@ -340,9 +368,13 @@ function retreiveFromImap(opts, callback) {
 // which is useful for debugging (can start up the
 // POP server quickly with cached messages).
 //
+IMAP_IS_BEING_POLLED = false;
+LAST_IMAP_POLL_TIME = 0;
 function pollImap(opts, callback) {
     var messages = { }; // Keyed by POP message number.
 
+    IMAP_IS_BEING_POLLED = true;
+    console.log("Polling the IMAP server...");
     retreiveFromImap(opts, function (e, messages_) {
         messages = { };
         for (var i = 0; i < messages_.length; ++i) {
@@ -358,9 +390,12 @@ function pollImap(opts, callback) {
                     fs.write(fd, b, 0, b.length, null, function (e) {
                         if (e) callback(e);
                         else {
-                            fs.close(fd);
-                            callback(null, { messages: messages,
-                                             deleted: { } });
+                            fs.close(fd, function () {
+                                LAST_IMAP_POLL_TIME = new Date().getTime();
+                                IMAP_IS_BEING_POLLED = false;
+                                callback(null, { messages: messages,
+                                                 deleted: { } });
+                            });
                         }
                     });
                 }
@@ -388,7 +423,7 @@ if (require.main === module) {
 
     function startpop(messages) {
         console.log("Starting POP server...");
-        Seq().seq(function () { startup(messages, new Date().getTime(), this); });
+        Seq().seq(function () { startup(messages, this); });
     }
 
     if (opts.mboxname.charAt(0) == '+') {
@@ -406,7 +441,6 @@ if (require.main === module) {
         });
     }
     else {
-        console.log("Performing initial poll of IMAP server...");
         pollImap(opts, function (e, messages) {
             if (e) {
                 console.log("Error polling imap server:");
