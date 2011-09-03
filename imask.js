@@ -285,8 +285,8 @@ function startup(imapMessages, callback) {
                     console.log("Merging old and new...");
                     var old = imapMessages_.messages;
                     var knew = imapMessages.messages;
-                    var oldks = Object.keys(old.sort());
-                    var knewks = Object.keys(knew.sort());
+                    var oldks = Object.keys(old).sort();
+                    var knewks = Object.keys(knew).sort();
                     var msgno = 1;
                     for (var i = 0; i < oldks.length; ++i) {
                         if (! old[oldks[i]].retreived) {
