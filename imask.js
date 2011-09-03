@@ -453,25 +453,27 @@ if (require.main === module) {
                     IMAP_MESSAGES = messages;
 
                     log("Starting POP server...");
-                    Seq().seq(function () {
-                        startup(
-                            function (callback) {
-                                if (opts.popUseSSL) {
-                                    return tls.createServer({
-                                        key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
-                                        cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
-                                        ca: opts.popSSLCaFiles ?
-                                                opts.popSSLCaFiles.map(function (f) {
-                                                    fs.readFileSync(f.replace("~", home));
-                                                }) : undefined
-                                    }, callback);
-                                }
-                                else return net.createServer.apply(net, arguments);
+                    startup(
+                        function (callback) {
+                            if (opts.popUseSSL) {
+                                return tls.createServer({
+                                    key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
+                                    cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
+                                    ca: opts.popSSLCaFiles ?
+                                            opts.popSSLCaFiles.map(function (f) {
+                                                fs.readFileSync(f.replace("~", home));
+                                            }) : undefined
+                                }, callback);
                             }
-                            ,
-                            this
-                        );
-                    });
+                            else return net.createServer.apply(net, arguments);
+                        }
+                        ,
+                        function (e) {
+                            log("Error in POP server:");
+                            log(e)
+                            process.exit(1);
+                        }
+                    );
 
                     setInterval(pollImapAgain, opts.imapPollIntervalSeconds * 1000);
                 }
