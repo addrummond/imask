@@ -24,12 +24,8 @@ function parsePop(s) {
     switch (firstWord) {
         case 'USER': case 'PASS': {
             var m = /^([^\s]+)\s*$/.exec(remainder);
-            if (! m) {
-                return "Bad '" + firstWord + "' command (" + s + ")";
-            }
-            else {
-                return { command: firstWord, word: m[1] }
-            }
+            if (! m) return "Bad '" + firstWord + "' command (" + s + ")";
+            else return { command: firstWord, word: m[1] }
         } break;
         case 'APOP': case 'CAPA': case 'NOOP':
         case 'RSET': case 'QUIT': case 'STAT': {
