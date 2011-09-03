@@ -288,7 +288,7 @@ function startup(createServerFunc, callback) {
 }
 
 IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
-function retreiveFromImap(opts, callback) {
+function retreiveFromImap(opts, sinceDateString, callback) {
     imap = new ImapConnection({
         username: opts.imapUsername,
         password: opts.imapPassword,
@@ -304,7 +304,8 @@ function retreiveFromImap(opts, callback) {
         .seq(function (boxes) {
             imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
         })
-        .seq(function () { imap.search(['UNSEEN'], this); })
+        .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
+                                       : 'UNSEEN', this); })
         .seq(function (xs) { log("Fetching " + xs.length + " messages..."); this(null, xs); })
         .flatten()
         .parMap_(function (this_, id, index) {
@@ -339,6 +340,13 @@ function retreiveFromImap(opts, callback) {
         .catch(callback);
 }
 
+function xDaysBefore(x, date) {
+    var time = date.getTime() - x * 1000 * 60 * 60 * 24;
+    var ndate = new Date(time);
+    return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][ndate.getMonth()] +
+           ' ' + ndate.getDate() + ', ' + ndate.getFullYear();
+}
+
 //
 // This also writes the messages retreived to a file
 // named after the POP mailbox in JSON format,
@@ -352,33 +360,38 @@ function pollImap(opts, callback) {
 
     IMAP_IS_BEING_POLLED = true;
     log("Polling the IMAP server...");
-    retreiveFromImap(opts, function (e, messages_) {
-        messages = { };
-        messages_.forEach(function (m) {
-            messages[m.number] = m;
-        });
 
-        if (e) callback(e);
-        else {
-            fs.open(opts.popUsername, 'w', function (e, fd) {
-                if (e) callback(e);
-                else {
-                    var b = new Buffer(JSON.stringify(messages));
-                    fs.write(fd, b, 0, b.length, null, function (e) {
-                        if (e) callback(e);
-                        else {
-                            fs.close(fd, function () {
-                                LAST_IMAP_POLL_TIME = new Date().getTime();
-                                IMAP_IS_BEING_POLLED = false;
-                                callback(null, { messages: messages,
-                                                 deleted: { } });
-                            });
-                        }
-                    });
-                }
+    retreiveFromImap(
+        opts,
+        xDaysBefore(opts.imapMessageAgeLimitDays, new Date()),
+        function (e, messages_) {
+            messages = { };
+            messages_.forEach(function (m) {
+                messages[m.number] = m;
             });
+
+            if (e) callback(e);
+            else {
+                fs.open(opts.popUsername, 'w', function (e, fd) {
+                    if (e) callback(e);
+                    else {
+                        var b = new Buffer(JSON.stringify(messages));
+                        fs.write(fd, b, 0, b.length, null, function (e) {
+                            if (e) callback(e);
+                            else {
+                                fs.close(fd, function () {
+                                    LAST_IMAP_POLL_TIME = new Date().getTime();
+                                    IMAP_IS_BEING_POLLED = false;
+                                    callback(null, { messages: messages,
+                                                     deleted: { } });
+                                });
+                            }
+                        });
+                    }
+                });
+            }
         }
-    });
+    );
 }
 
 function pollImapAgain() {
@@ -455,7 +468,10 @@ if (require.main === module) {
                                 return tls.createServer({
                                     key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
                                     cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
-                                    ca: opts.popSSLCaFiles ? opts.popSSLCaFiles.map(function (f) { fs.readFileSync(f.replace("~", home)); }) : undefined
+                                    ca: opts.popSSLCaFiles ?
+                                            opts.popSSLCaFiles.map(function (f) {
+                                                fs.readFileSync(f.replace("~", home));
+                                            }) : undefined
                                 }, callback);
                             }
                             else return net.createServer.apply(net, arguments);

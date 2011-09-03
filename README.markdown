@@ -26,7 +26,8 @@ The configuration file is a JSON dictionary, e.g.:
         "imapPassword": "my_email_password",
         "imapMailbox": "INBOX",
         "imapPollIntervalSeconds": 180,
-        "imapReadOnly": false
+        "imapReadOnly": false,
+        "imapMessageAgeLimitDays": 30
     }
 
 The `popUseSSL` key can be set to true to have the POP server use
@@ -42,11 +43,27 @@ true. Applications connecting to the POP server must use PASS
 authentication with the username `popUsername` and the password
 `popPassword`.
 
+The `imapMessageAgeLimitDays` option can be used to stop imask
+retrieving old messages from the IMAP server, even if they are
+unread. This can be set to a null value if you want all messages to be
+retrieved regardless of age. Note that if `imapReadOnly` is true (so
+that messages retrieved via the pop server are not marked as read on
+the IMAP server), then an age limit really should be set, or imask
+will repeatedly download an ever-increasing set of messages.
+
+Imask uses the IMAP id of each message to provide a unique identifier
+via the UIDL extension to POP. Imask operates on the assumption that
+the POP client will use UIDL to ensure that duplicate messages do not
+appear in the inbox if imask is restarted. (I.e., imask does not
+attempt to save any state allowing it to determine which messages were
+retrieved via the pop server the last time it was run.) In the case of
+GMail's POP client, this appears to work.
+
 Why you might want this
 =======================
 GMail can automatically poll a POP server for mail, but not an IMAP
 server. If your mail provider only provides IMAP, imask can be used to
 provide a POP server for GMail to poll. (Although, if you have your
 own server, you should also be able to use fetchmail to download mail
-from the IMAP server and then pass it on to GMail's SMTP server, but I
+from the IMAP server and then pass it on to GMail's SMTP server -- I
 got bored trying to make this work.)
