@@ -1,0 +1,18 @@
+{
+  "author": "Alex Drummond <a.d.drummond@gmail.com>",
+  "name": "imask",
+  "description": "Masks an IMAP server with a simple POP server",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/addrummond/imask.git"
+  },
+  "engines": {
+    "node": "~v0.4.11"
+  },
+  "dependencies": {
+    "imap": ">=0.2.3 <0.3",
+    "seq": ">=0.3.3 <0.4"
+  },
+  "devDependencies": {}
+}
