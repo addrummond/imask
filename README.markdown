@@ -25,7 +25,8 @@ The configuration file is a JSON dictionary, e.g.:
         "imapUsername": "my_email_username",
         "imapPassword": "my_email_password",
         "imapMailbox": "INBOX",
-        "imapPollIntervalSeconds": 180
+        "imapPollIntervalSeconds": 180,
+        "imapReadOnly": false
     }
 
 The `popUseSSL` key can be set to true to have the POP server use
@@ -36,9 +37,10 @@ simple logging information to stdout, so it should be run as follows:
     node imask.js > log
 
 Messages which are retrieved from the POP server are marked as unseen
-(i.e. unread) on the IMAP server. Applications connecting to the POP
-server must use PASS authentication with the username `popUsername` and
-the password `popPassword`.
+(i.e. unread) on the IMAP server, unless `imapReadOnly` is
+true. Applications connecting to the POP server must use PASS
+authentication with the username `popUsername` and the password
+`popPassword`.
 
 Why you might want this
 =======================
