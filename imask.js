@@ -133,6 +133,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
             else {
                 state.state = 'authenticated';
                 socket.write('+OK Authenticated\r\n', callback);
+                console.log("User authenticated");
             }
         }
     }
