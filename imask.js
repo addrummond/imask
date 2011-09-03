@@ -305,7 +305,7 @@ function retreiveFromImap(opts, callback) {
         .seq(function () { imap.connect(this); })
         .seq(function () { imap.getBoxes(this); })
         .seq(function (boxes) {
-            imap.openBox(opts.imapMailbox, false/*read/write access*/, this);
+            imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
         })
         .seq(function () { imap.search(['UNSEEN'], this); })
         .seq(function (xs) { log("Fetching " + xs.length + " messages..."); this(null, xs); })
@@ -329,7 +329,7 @@ function retreiveFromImap(opts, callback) {
         .seq(function (messages) {
             // Finally, mark those messages as unseen which were retreived via the POP
             // server at some earlier point.
-            if (IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
+            if (!opts.imapReadOnly && IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
                 imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
                     log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
                     IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
