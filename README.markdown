@@ -28,7 +28,7 @@ The configuration file is a JSON dictionary, e.g.:
         "imapPollIntervalSeconds": 180
     }
 
-The popUseSSL key can be set to true to have the POP server use
+The `popUseSSL` key can be set to true to have the POP server use
 SSL. Currently, the connection to the IMAP server is assumed to be via
 SSL if imapPort is 993, and insecure otherwise. The server prints some
 simple logging information to stdout, so it should be run as follows:
