@@ -44,4 +44,7 @@ Why you might want this
 =======================
 GMail can automatically poll a POP server for mail, but not an IMAP
 server. If your mail provider only provides IMAP, imask can be used to
-provide a POP server for GMail to poll.
+provide a POP server for GMail to poll. (Although, if you have your
+own server, you should also be able to use fetchmail to download mail
+from the IMAP server and then pass it on to GMail's SMTP server, but I
+got bored trying to make this work.)
