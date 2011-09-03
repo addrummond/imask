@@ -317,9 +317,7 @@ function startup(imapMessages, callback) {
         });
     });
 
-    server.listen(opts.pop_port, function () {
-        console.log("Connection to POP server");
-    });
+    server.listen(opts.pop_port);
     console.log("POP server started");
 }
 
