@@ -305,10 +305,10 @@ function retrieveFromImap(opts, sinceDateString, callback) {
             imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
         })
         .seq_(function (this_) {
-            // Mark those messages as unseen which were retrieved via the POP server
+            // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
             if (!opts.imapReadOnly && IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
-                log("Marking messages as unseen...");
+                log("Marking messages as seen...");
                 imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
                     if (e) this_(e);
                     log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
