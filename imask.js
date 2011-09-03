@@ -5,7 +5,9 @@ var net = require('net'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq');
 
-var IMAP_POLL_INTERVAL = 0.5 * 60 * 1000; // Milliseconds.
+IMAP_POLL_INTERVAL = 0.5 * 60 * 1000; // Milliseconds.
+
+IMAP_MESSAGES = null; // Will be an imap-message-id-keyed dict.
 
 function getFirstWord(s) {
     var a = s.split(/\s+/);
@@ -89,7 +91,7 @@ function writeByteStuffed(socket, string, callback) {
         .seq(callback).catch(callback);
 }
 
-function dispatch(state, imapMessages, socket, p, callback) {
+function dispatch(state, socket, p, callback) {
     function capa() {
         Seq().seq(function () {
             socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\nUIDL\r\n.\r\n', this);
@@ -149,7 +151,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 var ms = false;
                 if (p.messageNumber)
                     ms = [p.messageNumber];
-                else ms = Object.keys(imapMessages.messages);
+                else ms = Object.keys(IMAP_MESSAGES.messages);
 
                 if (ms === false) {
                     socket.write('-ERR Bad message number\r\n');
@@ -157,10 +159,10 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 }
                 else {
                     Seq()
-                        .seq(function () { socket.write('+OK ' + Object.keys(imapMessages.messages).length + ' messages\r\n', this); })
+                        .seq(function () { socket.write('+OK ' + Object.keys(IMAP_MESSAGES.messages).length + ' messages\r\n', this); })
                         .extend(ms)
                         .forEach(function (k, i) {
-                            var message = imapMessages.messages[k];
+                            var message = IMAP_MESSAGES.messages[k];
                             socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
                         })
                         .seq(function () { socket.write('.\r\n', this); })
@@ -169,7 +171,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
             } break;
             case 'RETR': {
                 // TODO: Inefficient linear search; should be in a dictionary.
-                var m = imapMessages.messages[p.messageNumber];
+                var m = IMAP_MESSAGES.messages[p.messageNumber];
                 if (! m) {
                     socket.write('-ERR Bad message number\r\n');
                     callback("Bad message number");
@@ -194,43 +196,43 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 }
             } break;
             case 'DELE': {
-                var m = imapMessages.messages[p.messageNumber];
+                var m = IMAP_MESSAGES.messages[p.messageNumber];
                 if (! m) {
                     socket.write('-ERR Bad message number\r\n');
                     callback("Bad message number");
                 }
                 else {
-                    imapMessages.deleted[p.messageNumber] = imapMessages.messages[p.messageNumber];
-                    delete imapMessages.messages[p.messageNumber];
+                    IMAP_MESSAGES.deleted[p.messageNumber] = IMAP_MESSAGES.messages[p.messageNumber];
+                    delete IMAP_MESSAGES.messages[p.messageNumber];
                     Seq().seq(function () { socket.write('+OK\r\n', this); }).catch(callback);
                 }
             } break;
             case 'QUIT': {
-                for (k in imapMessages.deleted)
-                    delete imapMessages.messages[k];
+                for (k in IMAP_MESSAGES.deleted)
+                    delete IMAP_MESSAGES.messages[k];
                 Seq()
                     .seq(function () { socket.write('+OK\r\n', this); })
                     .seq(function () { socket.destroySoon(); })
                     .catch(callback);
             } break;
             case 'RSET': {
-                for (k in imapMessages.deleted) {
-                    imapMessages.messages[k] = imapMessages.deleted[k];
-                    delete imapMessages.deleted[k];
+                for (k in IMAP_MESSAGES.deleted) {
+                    IMAP_MESSAGES.messages[k] = IMAP_MESSAGES.deleted[k];
+                    delete IMAP_MESSAGES.deleted[k];
                 }
                 Seq().seq(function () { socket.write('+OK\r\n', this); }).catch(callback);
             } break;
             case 'STAT': {
-                var numMessages = Object.keys(imapMessages.messages).length;
+                var numMessages = Object.keys(IMAP_MESSAGES.messages).length;
                 var octetSize = 0;
-                for (k in imapMessages.messages) {
-                    octetSize += new Buffer(imapMessages.messages[k].body).length;
+                for (k in IMAP_MESSAGES.messages) {
+                    octetSize += new Buffer(IMAP_MESSAGES.messages[k].body).length;
                 }
                 socket.write('+OK ' + numMessages + ' ' + octetSize + '\r\n', 'utf-8', callback);
             } break;
             case 'UIDL': {
                 if (typeof(p.messageNumber) != "undefined") {
-                    var m = imapMessages.messages[p.messageNumber];
+                    var m = IMAP_MESSAGES.messages[p.messageNumber];
                     if (! m) {
                         socket.write("-ERR Bad message number\r\n");
                         callback("Bad message number");
@@ -239,10 +241,10 @@ function dispatch(state, imapMessages, socket, p, callback) {
                 }
                 else {
                     Seq()
-                        .seq(function () { socket.write('+OK ' + Object.keys(imapMessages.messages).length + ' messages\r\n', this); })
-                        .extend(Object.keys(imapMessages.messages))
+                        .seq(function () { socket.write('+OK ' + Object.keys(IMAP_MESSAGES.messages).length + ' messages\r\n', this); })
+                        .extend(Object.keys(IMAP_MESSAGES.messages))
                         .forEach(function (k, i) {
-                            var message = imapMessages.messages[k];
+                            var message = IMAP_MESSAGES.messages[k];
                             socket.write(message.number + ' ' + message.message.id + '\r\n', this);
                         })
                         .seq(function () { socket.write('.\r\n', this); })
@@ -257,7 +259,7 @@ function dispatch(state, imapMessages, socket, p, callback) {
     else callback("Unknown state");
 }
 
-function startup(imapMessages, callback) {
+function startup(callback) {
     var server = net.createServer(function (socket) {
         socket.setEncoding('utf-8');
 
@@ -267,43 +269,6 @@ function startup(imapMessages, callback) {
 
         var currentBuffer = [];
         socket.on('data', function (s) {
-            // See if it's time to poll the IMAP server again.
-            if (!IMAP_IS_BEING_POLLED && new Date().getTime() - LAST_IMAP_POLL_TIME > IMAP_POLL_INTERVAL) {
-                pollImap(opts/*global*/, function (e, imapMessages_) {
-                    if (e) { callback(); return; }
-
-                    for (k in imapMessages)
-                        imapMessages[k] = imapMessages_[k];
-                    imapMessages.messages = { }
-
-                    // Now we have two lists of messages, the old and the new.
-                    // Prune retreived messages from the old list, then
-                    // append the new list and renumber.
-                    //
-                    // All of this is just to stop a memory leak (we don't want
-                    // to keep every old message ever in memory).
-                    console.log("Merging old and new...");
-                    var old = imapMessages_.messages;
-                    var knew = imapMessages.messages;
-                    var oldks = Object.keys(old).sort();
-                    var knewks = Object.keys(knew).sort();
-                    var msgno = 1;
-                    for (var i = 0; i < oldks.length; ++i) {
-                        if (! old[oldks[i]].retreived) {
-                            old[oldks[i]].message.number = msgno;
-                            imapMessages.messages[msgno] = old[oldks[i]];
-                            msgno++
-                        }
-                    }
-                    for (var i = 0; i < knewks.length; ++i) {
-                        knew[knewks[i]].message.number = msgno;
-                        imapMessages.messages[msgno] = knew[knewks[i]];
-                        msgno++;
-                    }
-                    console.log("Now holding " + Object.keys(imapMessages.messages).length + " messages");
-                });
-            }
-
             currentBuffer.push(s);
             if (s.match(/\r\n$/)) {
                 var p = parsePop(currentBuffer.join(""));
@@ -315,7 +280,7 @@ function startup(imapMessages, callback) {
                     socket.destroySoon();
                 }
                 else {
-                    dispatch(state, imapMessages, socket, p, function (e) {
+                    dispatch(state, socket, p, function (e) {
                         if (e) {
                             console.log("Connection error:");
                             console.log(e);
@@ -425,6 +390,47 @@ function pollImap(opts, callback) {
     });
 }
 
+function pollImapAgain() {
+    if (IMAP_IS_BEING_POLLED) {
+        console.log("Attempt to poll while polling already underway");
+        return;
+    }
+
+    pollImap(opts/*global*/, function (e, IMAP_MESSAGES_) {
+        if (e) { callback(); return; }
+        
+        for (k in IMAP_MESSAGES)
+            IMAP_MESSAGES[k] = IMAP_MESSAGES_[k];
+        IMAP_MESSAGES.messages = { }
+        
+        // Now we have two lists of messages, the old and the new.
+        // Prune retreived messages from the old list, then
+        // append the new list and renumber.
+        //
+        // All of this is just to stop a memory leak (we don't want
+        // to keep every old message ever in memory).
+        console.log("Merging old and new...");
+        var old = IMAP_MESSAGES_.messages;
+        var knew = IMAP_MESSAGES.messages;
+        var oldks = Object.keys(old).sort();
+        var knewks = Object.keys(knew).sort();
+        var msgno = 1;
+        for (var i = 0; i < oldks.length; ++i) {
+            if (! old[oldks[i]].retreived) {
+                old[oldks[i]].message.number = msgno;
+                IMAP_MESSAGES.messages[msgno] = old[oldks[i]];
+                msgno++
+            }
+        }
+        for (var i = 0; i < knewks.length; ++i) {
+            knew[knewks[i]].message.number = msgno;
+            IMAP_MESSAGES.messages[msgno] = knew[knewks[i]];
+            msgno++;
+        }
+        console.log("Now holding " + Object.keys(IMAP_MESSAGES.messages).length + " messages");
+    });
+}
+
 if (require.main === module) {
     if (process.argv.length != 10) {
         console.log("Bad usage");
@@ -442,9 +448,11 @@ if (require.main === module) {
         boxname: process.argv[9]
     };
 
-    function startpop(messages) {
+    function startpop() {
         console.log("Starting POP server...");
-        Seq().seq(function () { startup(messages, this); });
+        Seq().seq(function () { startup(this); });
+
+        setInterval(pollImapAgain, IMAP_POLL_INTERVAL);
     }
 
     if (opts.mboxname.charAt(0) == '+') {
@@ -455,9 +463,9 @@ if (require.main === module) {
                 process.exit(1);
             }
             else {
-                messages = JSON.parse(buffer);
+                IMAP_MESSAGES = JSON.parse(buffer);
                 console.log("Using stored mailbox");
-                startpop({ messages: messages, deleted: { } });
+                startpop();
             }
         });
     }
@@ -470,7 +478,8 @@ if (require.main === module) {
                 process.exit(1);
             }
             else {
-                startpop(messages);
+                IMAP_MESSAGES = messages;
+                startpop();
             }
         });
     }
