@@ -7,7 +7,7 @@ the npm repo.
 Setting up a server
 ===================
 
-Imask reads options from a configuration file, by default ~/.imask. To
+Imask reads options from a configuration file, by default `~/.imask`. To
 read from a different configuration file, pass the file name as the
 sole command line argument.
 
@@ -30,15 +30,15 @@ The configuration file is a JSON dictionary, e.g.:
 
 The `popUseSSL` key can be set to true to have the POP server use
 SSL. Currently, the connection to the IMAP server is assumed to be via
-SSL if imapPort is 993, and insecure otherwise. The server prints some
+SSL if `imapPort` is 993, and insecure otherwise. The server prints some
 simple logging information to stdout, so it should be run as follows:
 
     node imask.js > log
 
 Messages which are retrieved from the POP server are marked as unseen
 (i.e. unread) on the IMAP server. Applications connecting to the POP
-server must use PASS authentication with the username popUsername and
-the password popPassword.
+server must use PASS authentication with the username `popUsername` and
+the password `popPassword`.
 
 Why you might want this
 =======================
