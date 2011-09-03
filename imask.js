@@ -350,12 +350,6 @@ function xDaysBefore(x, date) {
            ' ' + ndate.getDate() + ', ' + ndate.getFullYear();
 }
 
-//
-// This also writes the messages retrieved to a file
-// named after the POP mailbox in JSON format,
-// which is useful for debugging (can start up the
-// POP server quickly with cached messages).
-//
 IMAP_IS_BEING_POLLED = false;
 LAST_IMAP_POLL_TIME = 0;
 function pollImap(opts, callback) {
@@ -375,23 +369,9 @@ function pollImap(opts, callback) {
 
             if (e) callback(e);
             else {
-                fs.open(opts.popUsername, 'w', function (e, fd) {
-                    if (e) callback(e);
-                    else {
-                        var b = new Buffer(JSON.stringify(messages));
-                        fs.write(fd, b, 0, b.length, null, function (e) {
-                            if (e) callback(e);
-                            else {
-                                fs.close(fd, function () {
-                                    LAST_IMAP_POLL_TIME = new Date().getTime();
-                                    IMAP_IS_BEING_POLLED = false;
-                                    callback(null, { messages: messages,
-                                                     deleted: { } });
-                                });
-                            }
-                        });
-                    }
-                });
+                LAST_IMAP_POLL_TIME = new Date().getTime();
+                IMAP_IS_BEING_POLLED = false;
+                callback(null, { messages: messages, deleted: { } });
             }
         }
     );
@@ -462,65 +442,40 @@ if (require.main === module) {
 
             log("Imask started");
 
-            function startpop() {
-                log("Starting POP server...");
-                Seq().seq(function () {
-                    startup(
-                        function (callback) {
-                            if (opts.popUseSSL) {
-                                return tls.createServer({
-                                    key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
-                                    cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
-                                    ca: opts.popSSLCaFiles ?
-                                            opts.popSSLCaFiles.map(function (f) {
-                                                fs.readFileSync(f.replace("~", home));
-                                            }) : undefined
-                                }, callback);
+            pollImap(opts, function (e, messages) {
+                if (e) {
+                    log("Error polling imap server:");
+                    log(e);
+                    log("Exiting...");
+                    process.exit(1);
+                }
+                else {
+                    IMAP_MESSAGES = messages;
+
+                    log("Starting POP server...");
+                    Seq().seq(function () {
+                        startup(
+                            function (callback) {
+                                if (opts.popUseSSL) {
+                                    return tls.createServer({
+                                        key: fs.readFileSync(opts.popSSLKeyFile.replace("~", home)),
+                                        cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
+                                        ca: opts.popSSLCaFiles ?
+                                                opts.popSSLCaFiles.map(function (f) {
+                                                    fs.readFileSync(f.replace("~", home));
+                                                }) : undefined
+                                    }, callback);
+                                }
+                                else return net.createServer.apply(net, arguments);
                             }
-                            else return net.createServer.apply(net, arguments);
-                        }
-                        ,
-                        this
-                    );
-                });
+                            ,
+                            this
+                        );
+                    });
 
-                setInterval(pollImapAgain, opts.imapPollIntervalSeconds * 1000);
-            }
-
-            if (opts.popUsername.charAt(0) == '+') {
-                opts.popUsername = opts.popUsername.substr(1);
-                fs.readFile(opts.popUsername, function (e, buffer) {
-                    if (e) {
-                        log("Unable to read mailbox file '" + opts.popUsername + "'");
-                        process.exit(1);
-                    }
-                    else {
-                        try {
-                            IMAP_MESSAGES = { messages: JSON.parse(buffer), deleted: { } };
-                        }
-                        catch (err) {
-                            log("Error parsing stored mailbox -- " + err);
-                            process.exit(1);
-                        }
-                        log("Using stored mailbox");
-                        startpop();
-                    }
-                });
-            }
-            else {
-                pollImap(opts, function (e, messages) {
-                    if (e) {
-                        log("Error polling imap server:");
-                        log(e);
-                        log("Exiting...");
-                        process.exit(1);
-                    }
-                    else {
-                        IMAP_MESSAGES = messages;
-                        startpop();
-                    }
-                });
-            }
+                    setInterval(pollImapAgain, opts.imapPollIntervalSeconds * 1000);
+                }
+            });
         }
     });
 }
