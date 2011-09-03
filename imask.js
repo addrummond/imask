@@ -69,7 +69,7 @@ function getMessageOctetSize(message) {
         else {
             if (body[i] == '\n' && !lastWasR)
                 extras++;
-            lasWasR = false;
+            lastWasR = false;
         }
     }
     return header + new Buffer(body).length + extras;
