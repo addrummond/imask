@@ -1,4 +1,5 @@
 var net = require('net'),
+    tls = require('tls'),
     util = require('util'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
@@ -258,8 +259,8 @@ function dispatch(state, socket, p, callback) {
     else callback("Unknown state");
 }
 
-function startup(callback) {
-    var server = net.createServer(function (socket) {
+function startup(createServerFunc, callback) {
+    var server = createServerFunc(function (socket) {
         socket.setEncoding('utf-8');
 
         socket.write("+OK POP3 server ready\r\n");
@@ -452,16 +453,31 @@ if (require.main === module) {
 
             function startpop() {
                 console.log("Starting POP server...");
-                Seq().seq(function () { startup(this); });
+                Seq().seq(function () {
+                    startup(
+                        function (callback) {
+                            if (opts.popUseSSL) {
+                                return tls.createServer({
+                                    key: fs.readFileSync(opts.popSSLKeyFile),
+                                    cert: fs.readFileSync(opts.popSSLCertFile),
+                                    ca: opts.popSSLCaFiles ? opts.popSSLCaFiles.map(function (f) { fs.readFileSync(f); }) : undefined
+                                }, callback);
+                            }
+                            else return net.createServer.apply(net, arguments);
+                        }
+                        ,
+                        this
+                    );
+                });
 
                 setInterval(pollImapAgain, IMAP_POLL_INTERVAL);
             }
 
-            if (opts.imapMailbox.charAt(0) == '+') {
-                opts.imapMailbox = opts.imapMailbox.substr(1);
-                fs.readFile(opts.imapMailbox, function (e, buffer) {
+            if (opts.popUsername.charAt(0) == '+') {
+                opts.popUsername = opts.popUsername.substr(1);
+                fs.readFile(opts.popUsername, function (e, buffer) {
                     if (e) {
-                        console.log("Unable to read mailbox file '" + opts.imapMailbox + "'");
+                        console.log("Unable to read mailbox file '" + opts.popUsername + "'");
                         process.exit(1);
                     }
                     else {
