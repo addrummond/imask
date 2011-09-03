@@ -1,5 +1,5 @@
-A rather silly node.js script Node.js project that masks an IMAP
-server behind a simple POP3 server.
+A rather silly node.js script that masks an IMAP server behind a
+simple POP3 server.
 
 Requires the `seq` and `imap` modules. I recommend the latest git version
 of the `imap` module, since it has some bugfixes which are not yet in
