@@ -304,6 +304,20 @@ function retreiveFromImap(opts, sinceDateString, callback) {
         .seq(function (boxes) {
             imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
         })
+        .seq_(function (this_) {
+            // Mark those messages as unseen which were retreived via the POP server
+            // at some earlier point.
+            if (!opts.imapReadOnly && IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
+                log("Marking messages as unseen...");
+                imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
+                    if (e) this_(e);
+                    log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
+                    IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
+                    this_();
+                });
+            }
+            else this_();
+        })
         .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
                                        : 'UNSEEN', this); })
         .seq(function (xs) { log("Fetching " + xs.length + " messages..."); this(null, xs); })
@@ -325,17 +339,7 @@ function retreiveFromImap(opts, sinceDateString, callback) {
         })
         .unflatten()
         .seq(function (messages) {
-            // Finally, mark those messages as unseen which were retreived via the POP
-            // server at some earlier point.
-            if (!opts.imapReadOnly && IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
-                imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
-                    log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
-                    IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
-                    if (e) callback(e);
-                    else imap.logout(function (e) { callback(e, messages); });
-                });
-            }
-            else imap.logout(function (e) { callback(e, messages); });
+            imap.logout(function (e) { callback(e, messages); });
         })
         .catch(callback);
 }
