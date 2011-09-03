@@ -372,9 +372,10 @@ function retreiveFromImap(opts, callback) {
             // server at some earlier point.
             if (IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
                 imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
+                    console.log("Marked " + IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.join(',') + " as seen on IMAP server");
                     IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN = [];
                     if (e) callback(e);
-                    else imap.logout(function (e) { console.log("!!!"); callback(e, messages); });
+                    else imap.logout(function (e) { callback(e, messages); });
                 });
             }
             else imap.logout(function (e) { callback(e, messages); });
