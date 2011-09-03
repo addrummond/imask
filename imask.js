@@ -270,7 +270,7 @@ function startup(imapMessages, callback) {
             // See if it's time to poll the IMAP server again.
             if (!IMAP_IS_BEING_POLLED && new Date().getTime() - LAST_IMAP_POLL_TIME > IMAP_POLL_INTERVAL) {
                 pollImap(opts/*global*/, function (e, imapMessages_) {
-                    if (e) callback(); return;
+                    if (e) { callback(); return; }
 
                     for (k in imapMessages)
                         imapMessages[k] = imapMessages_[k];
@@ -368,8 +368,7 @@ function retreiveFromImap(opts, callback) {
         })
         .unflatten()
         .seq(function (messages) {
-            console.log(messages);
-            // Finally, mark those messages as unseed which were retreived via the POP
+            // Finally, mark those messages as unseen which were retreived via the POP
             // server at some earlier point.
             if (IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN.length) {
                 imap.addFlags(IMAP_MESSAGE_IDS_TO_BE_MARKED_SEEN, 'Seen', function (e) {
