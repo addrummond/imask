@@ -93,7 +93,7 @@ function Imask (opts) {
     if (! this.opts.log)
         this.opts.log = log;
 
-    this.imapMessages = null; // We be a dict { messages, deleted }, where
+    this.imapMessages = null; // Will be a dict { messages, deleted }, where
                               // 'messages' and 'deleted' are imap-message-id-keyed
                               // dicts.
     this.imapMessageIdsToBeMarkedSeen = [];
