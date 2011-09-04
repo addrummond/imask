@@ -400,8 +400,6 @@ Imask.prototype._pollImapAgain = function (callback) {
 
     this._pollImap(opts/*global*/, function (e, imapMessages_) {
         if (e) { callback(e); return; }
-
-        if (imapMessages_.length == 0) return;
         
         for (k in self.imapMessages)
             self.imapMessages[k] = imapMessages_[k];
