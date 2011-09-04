@@ -69,3 +69,9 @@ provide a POP server for GMail to poll. (Although, if you have your
 own server, you should also be able to use fetchmail to download mail
 from the IMAP server and then pass it on to GMail's SMTP server -- I
 got bored trying to make this work.)
+
+Limitations
+===========
+Currently, Imask can only handle one user account, and can only
+retrieve messages from one mailbox of the IMAP server. These
+limitations will hopefully be removed shortly.
