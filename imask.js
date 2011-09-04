@@ -390,16 +390,17 @@ Imask.prototype._pollImap = function(opts, callback) {
     );
 }
 
-Imask.prototype._pollImapAgain = function () {
+Imask.prototype._pollImapAgain = function (callback) {
     var self = this;
 
     if (this.imapIsBeingPolled) {
         opts.log("Attempt to poll while polling already underway");
-        return;
+        callback(); // This isn't an error condition -- we just don't want to
+                    // poll again in this instance.
     }
 
     this._pollImap(opts/*global*/, function (e, imapMessages_) {
-        if (e) { callback(); return; }
+        if (e) { callback(e); return; }
         
         for (k in self.imapMessages)
             self.imapMessages[k] = imapMessages_[k];
@@ -462,7 +463,15 @@ Imask.prototype.start = function (callback) {
                 callback
             );
 
-            setInterval(function () { self._pollImapAgain(); }, opts.imapPollIntervalSeconds * 1000);
+            setInterval(function () {
+                self._pollImapAgain(function (e) {
+                    // If there's an error repolling the imap server, log it
+                    // and try again later (since the imap server has already
+                    // been successfully polled once, it's most likely a
+                    // temporary network issue).
+                    opts.log("Error (re-)polling imap server: " + util.inspect(e));
+                });
+            }, opts.imapPollIntervalSeconds * 1000);
         }
     });
 }
