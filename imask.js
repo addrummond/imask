@@ -309,7 +309,7 @@ Imask.prototype._retrieveFromImap = function(sinceDateString, callback) {
         password: opts.imapPassword,
         host: opts.imapHost,
         port: opts.imapPort,
-        secure: opts.port == 993
+        secure: opts.imapUseSSL
     });
 
     var ret;
