@@ -161,7 +161,7 @@ Imask.prototype._dispatchPopCommand = function (state, socket, p, callback) {
                 var ms = false;
                 if (p.messageNumber)
                     ms = [p.messageNumber];
-                else ms = Object.keys(this.imapMessages);
+                else ms = Object.keys(this.imapMessages.messages);
 
                 if (ms === false) {
                     socket.write('-ERR Bad message number\r\n', callback);
@@ -196,7 +196,7 @@ Imask.prototype._dispatchPopCommand = function (state, socket, p, callback) {
                         .seq(function () { writeByteStuffed(socket, m.body, this); })
                         .seq(function () {
                             m.retrieved = true;
-                            self.imapMessagesToBeMarkedSeen.push(m.message.id);
+                            self.imapMessageIdsToBeMarkedSeen.push(m.message.id);
                             callback();
                         })
                         .catch(callback);
