@@ -325,11 +325,15 @@ Imask.prototype._startupPop = function (createServerFunc, callback) {
     opts.log("POP server started");
 }
 
+function imapservername(opts, username) { // Used in logging.
+    return opts.accounts[username].imapUsername + '@' + opts.accounts[username].imapHost;
+}
+
 Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback) {
     var self = this, opts = this.opts;
 
     imap = new ImapConnection({
-        username: username,
+        username: opts.accounts[username].imapUsername,
         password: opts.accounts[username].imapPassword,
         host: opts.accounts[username].imapHost,
         port: opts.accounts[username].imapPort,
@@ -360,7 +364,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
                                        : 'UNSEEN', this); })
         .seq(function (xs) {
-            opts.log("Fetching " + xs.length + " messages for " + imapservername(opts, username) + "...");
+            opts.log("Fetching " + xs.length + " messages for " + imapservername(opts, username) + " ...");
             this(null, xs);
         })
         .flatten()
@@ -398,28 +402,28 @@ Imask.prototype._pollImap = function(username, callback) {
     var messages = { }; // Keyed by POP message number.
 
     this.imapIsBeingPolled = true;
-    opts.log("Polling the IMAP server for " + imapservername(opts, username) + "...");
+    opts.log("Polling the IMAP server for " + imapservername(opts, username) + " ...");
 
     this._retrieveFromImap(
         username,
         xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date()),
         function (e, messages_) {
-            messages = { };
-            messages_.forEach(function (m) {
-                messages[m.number] = m;
-            });
-
-            if (e) callback(e);
+            if (e)
+                callback(e)
             else {
-                self.imapIsBeingPolled = false;
-                callback(null, { messages: messages, deleted: { } });
+                messages = { };
+                messages_.forEach(function (m) {
+                    messages[m.number] = m;
+                });
+                
+                if (e) callback(e);
+                else {
+                    self.imapIsBeingPolled = false;
+                    callback(null, { messages: messages, deleted: { } });
+                }
             }
         }
     );
-}
-
-function imapservername(opts, username) { // Used in logging.
-    return username + '@' + opts.accounts[username].imapHost;
 }
 
 Imask.prototype._pollImapAgain = function (username, callback) {
@@ -447,7 +451,7 @@ Imask.prototype._pollImapAgain = function (username, callback) {
         //
         // All of this is just to stop a memory leak (we don't want
         // to keep every old message ever in memory).
-        opts.log("Merging old and new for " + imapservername(opts, username) + "...");
+        opts.log("Merging old and new for " + imapservername(opts, username) + " ...");
         var old = imapMessages_.messages;
         var knew = self.imapMessages[username].messages;
         var oldks = Object.keys(old).sort();
@@ -479,7 +483,6 @@ Imask.prototype.start = function (callback) {
     Seq()
         .extend(Object.keys(opts.accounts))
         .parEach_(function (this_, username) {
-            opts.log("Polling " + imapservername(opts,username));
             self._pollImap(username, function (e, messages) {
                 if (e) {
                     this_("Error polling " + imapservername(opts,username) + ':' + util.inspect(e));
