@@ -351,6 +351,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         port: opts.accounts[username].imapPort,
         secure: opts.accounts[username].imapUseSSL
     });
+    imap.on('error', callback);
 
     Seq()
         .seq(function () { imap.connect(this); })
@@ -421,15 +422,20 @@ Imask.prototype._pollImap = function(username, callback) {
         username,
         xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date()),
         function (e, messages_) {
-            if (e)
+            if (e) {
+                self.imapIsBeingPolled[username] = false;
                 callback(e)
+            }
             else {
                 messages = { };
                 messages_.forEach(function (m) {
                     messages[m.number] = m;
                 });
                 
-                if (e) callback(e);
+                if (e) {
+                    self.imapIsBeingPolled[username] = false;
+                    callback(e);
+                }
                 else {
                     self.imapIsBeingPolled[username] = false;
                     callback(null, { messages: messages, deleted: { } });
@@ -588,7 +594,7 @@ if (require.main === module) {
                                     : undefined);
             opts.log = function (level, msg) {
                 if (level == 'error') mylog.error(msg);
-                if (level == 'info') mylog.info(msg);
+                else if (level == 'info') mylog.info(msg);
                 else assert(false, "Bad log level");
             }
 
@@ -597,7 +603,7 @@ if (require.main === module) {
             var imask = new Imask(opts);
             imask.start(function (e) {
                 if (e) {
-                    opts.log('error', e);
+                    opts.log('error', util.inspect(e));
                     process.exit(1);
                 }
             });
