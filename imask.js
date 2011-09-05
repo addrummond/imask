@@ -529,7 +529,7 @@ Imask.prototype.start = function (callback) {
                     // been successfully polled once, it's most likely a
                     // temporary network issue).
                     if (e)
-                        opts.log("Error (re-)polling " + imapservername(opts, username) + ':' + util.inspect(e));
+                        opts.log("Error (re-)polling IMAP server for" + imapservername(opts, username) + ':' + util.inspect(e));
                 });
             },  interval);
             this();
