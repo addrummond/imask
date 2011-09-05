@@ -490,7 +490,8 @@ Imask.prototype.start = function (callback) {
                     // and try again later (since the imap server has already
                     // been successfully polled once, it's most likely a
                     // temporary network issue).
-                    opts.log("Error (re-)polling imap server: " + util.inspect(e));
+                    if (e)
+                        opts.log("Error (re-)polling imap server: " + util.inspect(e));
                 });
             }, opts.accounts[username].imapPollIntervalSeconds * 1000);
             this();
