@@ -361,14 +361,14 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .seq_(function (this_) {
             // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
-            if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen.length) {
+            if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen[username].length) {
                 opts.log('info', "Marking messages as seen for " + imapservername(opts, username));
-                imap.addFlags(self.imapMessageIdsToBeMarkedSeen, 'Seen', function (e) {
+                imap.addFlags(self.imapMessageIdsToBeMarkedSeen[username], 'Seen', function (e) {
                     if (e) this_(e);
                     opts.log('info',
-                             "Marked " + self.imapMessageIdsToBeMarkedSeen.join(',') + " as seen on " +
+                             "Marked " + self.imapMessageIdsToBeMarkedSeen[username].join(',') + " as seen on " +
                              imapservername(opts, username));
-                    self.imapMessageIdsToBeMarkedSeen = [];
+                    self.imapMessageIdsToBeMarkedSeen[username] = [];
                     this_();
                 });
             }
