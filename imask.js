@@ -583,7 +583,9 @@ if (require.main === module) {
             }
 
             var mylog = new Log(Log.INFO,
-                                opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
+                                opts.logFile
+                                    ? fs.createWriteStream(opts.logFile.replace("~", home), { flags: 'a' })
+                                    : undefined);
             opts.log = function (level, msg) {
                 if (level == 'error') mylog.error(msg);
                 if (level == 'info') mylog.info(msg);
