@@ -408,6 +408,7 @@ Imask.prototype._pollImapAgain = function (callback) {
         opts.log("Attempt to poll while polling already underway");
         callback(); // This isn't an error condition -- we just don't want to
                     // poll again in this instance.
+        return;
     }
 
     this._pollImap(opts/*global*/, function (e, imapMessages_) {
