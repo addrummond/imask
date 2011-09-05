@@ -93,15 +93,13 @@ function Imask (opts) {
     if (! this.opts.log)
         this.opts.log = log;
 
-    this.imapMessages = null; // Will be a dict { messages, deleted }, where
+    this.imapMessages = { };  // Will be a dict IMAP_username -> { messages, deleted }, where
                               // 'messages' and 'deleted' are imap-message-id-keyed
                               // dicts.
-    this.imapMessageIdsToBeMarkedSeen = [];
-    this.imapIsBeingPolled = false;
-    this.lastImapPollTime = 0;
+    this.imapMessageIdsToBeMarkedSeen = { }; // IMAP_username -> [message_id1, message_id2, ...]
+    this.imapIsBeingPolled = { }; // IMAP_username -> bool
 
     this.states = { };
-//    for (k in opts.accounts) this.states[k] = { state: 'waitingforuser'; }
 }
 
 Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback) {
@@ -136,7 +134,8 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
         }
     }
     else {
-        var state = states[socketState.username];
+        var username = socketState.username;
+        var state = states[username];
         switch (state) {
             case: 'waitingpass': {
                 if (p.command == 'APOP' || p.command == 'CAPA') {
@@ -155,7 +154,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                     else {
                         state.state = 'authenticated';
                         socket.write('+OK Authenticated\r\n', callback);
-                        opts.log("User authenticated");
+                        opts.log("User " + username + " authenticated");
                     }
                 }
             } break;
@@ -171,17 +170,23 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                         var ms = false;
                         if (p.messageNumber)
                             ms = [p.messageNumber];
-                        else ms = Object.keys(this.imapMessages.messages);
+                        else ms = Object.keys(this.imapMessages[username].messages);
         
                         if (ms === false) {
                             socket.write('-ERR Bad message number\r\n', callback);
                         }
                         else {
                             Seq()
-                                .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
+                                .seq(function () {
+                                    socket.write('+OK ' +
+                                                 Object.keys(self.imapMessages[username].messages).length +
+                                                 ' messages\r\n'
+                                                 ,
+                                                 this);
+                                })
                                 .extend(ms)
                                 .forEach(function (k, i) {
-                                    var message = self.imapMessages.messages[k];
+                                    var message = self.imapMessages[username].messages[k];
                                     socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
                                 })
                                 .seq(function () { socket.write('.\r\n', callback); })
@@ -189,12 +194,12 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                         }
                     } break;
                     case 'RETR': {
-                        var m = this.imapMessages.messages[p.messageNumber];
+                        var m = this.imapMessages[username].messages[p.messageNumber];
                         if (! m) {
                             socket.write('-ERR Bad message number\r\n', callback);
                         }
                         else {
-                            opts.log("Responding to RETR for message " + p.messageNumber);
+                            opts.log("Responding to RETR for message " + p.messageNumber + " of " + username);
                             Seq()
                                 .seq(function () { socket.write('+OK\r\n', this); })
                                 .extend(Object.keys(m.message.headers))
@@ -206,58 +211,64 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                                 .seq(function () { writeByteStuffed(socket, m.body, this); })
                                 .seq(function () {
                                     m.retrieved = true;
-                                    self.imapMessageIdsToBeMarkedSeen.push(m.message.id);
+                                    self.imapMessageIdsToBeMarkedSeen[username].push(m.message.id);
                                     callback();
                                 })
                                 .catch(callback);
                         }
                     } break;
                     case 'DELE': {
-                        var m = this.imapMessages.messages[p.messageNumber];
+                        var m = this.imapMessages[username].messages[p.messageNumber];
                         if (! m) {
                             socket.write('-ERR Bad message number\r\n', callback);
                         }
                         else {
-                            this.imapMessages.deleted[p.messageNumber] = this.imapMessages.messages[p.messageNumber];
-                            delete this.imapMessages.messages[p.messageNumber];
+                            this.imapMessages[username].deleted[p.messageNumber] = this.imapMessages[username].messages[p.messageNumber];
+                            delete this.imapMessages[username].messages[p.messageNumber];
                             socket.write('+OK\r\n', callback);
                         }
                     } break;
                     case 'QUIT': {
-                        for (k in this.imapMessages.deleted)
-                            delete this.imapMessages.messages[k];
+                        for (k in this.imapMessages[username].deleted)
+                            delete this.imapMessages[username].messages[k];
                         Seq()
                             .seq(function () { socket.write('+OK\r\n', this); })
                             .seq(function () { socket.destroySoon(); callback(); })
                             .catch(callback);
                     } break;
                     case 'RSET': {
-                        for (k in this.imapMessages.deleted) {
-                            this.imapMessages.messages[k] = this.imapMessages.deleted[k];
-                            delete this.imapMessages.deleted[k];
+                        for (k in this.imapMessages[username].deleted) {
+                            this.imapMessages[username].messages[k] = this.imapMessages[username].deleted[k];
+                            delete this.imapMessages[username].deleted[k];
                         }
                         socket.write('+OK\r\n', callback);
                     } break;
                     case 'STAT': {
-                        var numMessages = Object.keys(this.imapMessages.messages).length;
+                        var numMessages = Object.keys(this.imapMessages[username].messages).length;
                         var octetSize = 0;
-                        for (k in this.imapMessages.messages) {
-                            octetSize += new Buffer(this.imapMessages.messages[k].body).length;
+                        for (k in this.imapMessages[username].messages) {
+                            octetSize += new Buffer(this.imapMessages[username].messages[k].body).length;
                         }
                         socket.write('+OK ' + numMessages + ' ' + octetSize + '\r\n', 'utf-8', callback);
                     } break;
                     case 'UIDL': {
                         if (typeof(p.messageNumber) != "undefined") {
-                            var m = this.imapMessages.messages[p.messageNumber];
+                            var m = this.imapMessages[username].messages[p.messageNumber];
                             if (! m) socket.write('-ERR Bad message number\r\n', callback);
                             else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
                         }
                         else {
                             Seq()
-                                .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
-                                .extend(Object.keys(this.imapMessages.messages))
+                                .seq(function () {
+                                    socket.write('+OK ' +
+                                                 Object.keys(self.imapMessages[username].messages).length +
+                                                 ' messages\r\n'
+                                                 ,
+                                                 this);
+                                })
+                                .extend(Object.keys(this.imapMessages[username].messages))
                                 .forEach(function (k, i) {
-                                    var message = self.imapMessages.messages[k];
+                                    var message = self.imapMessages[username].messages[k];
                                     socket.write(message.number + ' ' + message.message.id + '\r\n', this);
                                 })
                                 .seq(function () { socket.write('.\r\n', callback); })
@@ -313,31 +324,32 @@ Imask.prototype._startupPop = function (createServerFunc, callback) {
     opts.log("POP server started");
 }
 
-Imask.prototype._retrieveFromImap = function(sinceDateString, callback) {
+Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback) {
     var self = this, opts = this.opts;
 
     imap = new ImapConnection({
-        username: opts.imapUsername,
-        password: opts.imapPassword,
-        host: opts.imapHost,
-        port: opts.imapPort,
-        secure: opts.imapUseSSL
+        username: username,
+        password: opts.accounts[username].imapPassword,
+        host: opts.accounts[username].imapHost,
+        port: opts.accounts[username].imapPort,
+        secure: opts.accounts[username].imapUseSSL
     });
 
     Seq()
         .seq(function () { imap.connect(this); })
         .seq(function () { imap.getBoxes(this); })
         .seq(function (boxes) {
-            imap.openBox(opts.imapMailbox, opts.imapReadOnly, this);
+            imap.openBox(opts.accounts[username].imapMailbox, opts.accounts[username].imapReadOnly, this);
         })
         .seq_(function (this_) {
             // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
-            if (!opts.imapReadOnly && self.imapMessageIdsToBeMarkedSeen.length) {
-                opts.log("Marking messages as seen...");
+            if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen.length) {
+                opts.log("Marking messages as seen for " + imapservername(opts, username));
                 imap.addFlags(self.imapMessageIdsToBeMarkedSeen, 'Seen', function (e) {
                     if (e) this_(e);
-                    opts.log("Marked " + self.imapMessageIdsToBeMarkedSeen.join(',') + " as seen on IMAP server");
+                    opts.log("Marked " + self.imapMessageIdsToBeMarkedSeen.join(',') + " as seen on " +
+                             imapservername(opts, username));
                     self.imapMessageIdsToBeMarkedSeen = [];
                     this_();
                 });
@@ -346,10 +358,13 @@ Imask.prototype._retrieveFromImap = function(sinceDateString, callback) {
         })
         .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
                                        : 'UNSEEN', this); })
-        .seq(function (xs) { opts.log("Fetching " + xs.length + " messages..."); this(null, xs); })
+        .seq(function (xs) {
+            opts.log("Fetching " + xs.length + " messages for " + imapservername(opts, username) + "...");
+            this(null, xs);
+        })
         .flatten()
         .parMap_(function (this_, id, index) {
-            opts.log("Fetching message [IMAP id " + id + "]");
+            opts.log("Fetching message " + id + "for " + imapservername(opts, username));
             this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
                 imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
@@ -377,15 +392,16 @@ function xDaysBefore(x, date) {
            ' ' + ndate.getDate() + ', ' + ndate.getFullYear();
 }
 
-Imask.prototype._pollImap = function(opts, callback) {
+Imask.prototype._pollImap = function(username, callback) {
     var self = this, opts = this.opts;
     var messages = { }; // Keyed by POP message number.
 
     this.imapIsBeingPolled = true;
-    opts.log("Polling the IMAP server...");
+    opts.log("Polling the IMAP server for " + imapservername(opts, username) + "...");
 
     this._retrieveFromImap(
-        xDaysBefore(opts.imapMessageAgeLimitDays, new Date()),
+        username,
+        xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date()),
         function (e, messages_) {
             messages = { };
             messages_.forEach(function (m) {
@@ -401,22 +417,28 @@ Imask.prototype._pollImap = function(opts, callback) {
     );
 }
 
-Imask.prototype._pollImapAgain = function (callback) {
-    var self = this;
+function imapservername(opts, username) { // Used in logging.
+    return username + '@' + opts.accounts[username].imapHost;
+}
+
+Imask.prototype._pollImapAgain = function (username, callback) {
+    var self = this, opts = this.opts;
 
     if (this.imapIsBeingPolled) {
-        opts.log("Attempt to poll while polling already underway");
+        opts.log("Attempt to poll IMAP server for " +
+                 imapservername(opts, username) +
+                 " while polling already underway");
         callback(); // This isn't an error condition -- we just don't want to
                     // poll again in this instance.
         return;
     }
 
-    this._pollImap(opts/*global*/, function (e, imapMessages_) {
+    this._pollImap(username, function (e, imapMessages_) {
         if (e) { callback(e); return; }
         
-        for (k in self.imapMessages)
-            self.imapMessages[k] = imapMessages_[k];
-        self.imapMessages.messages = { }
+        for (k in self.imapMessages[username])
+            self.imapMessages[username][k] = imapMessages_[k];
+        self.imapMessages[username].messages = { }
         
         // Now we have two lists of messages, the old and the new.
         // Prune retrieved messages from the old list, then
@@ -424,25 +446,28 @@ Imask.prototype._pollImapAgain = function (callback) {
         //
         // All of this is just to stop a memory leak (we don't want
         // to keep every old message ever in memory).
-        opts.log("Merging old and new...");
+        opts.log("Merging old and new for " + imapservername(opts, username) + "...");
         var old = imapMessages_.messages;
-        var knew = self.imapMessages.messages;
+        var knew = self.imapMessages[username].messages;
         var oldks = Object.keys(old).sort();
         var knewks = Object.keys(knew).sort();
         var msgno = 1;
         for (var i = 0; i < oldks.length; ++i) {
             if (! old[oldks[i]].retrieved) {
                 old[oldks[i]].message.number = msgno;
-                self.imapMessages.messages[msgno] = old[oldks[i]];
+                self.imapMessages[username].messages[msgno] = old[oldks[i]];
                 msgno++
             }
         }
         for (var i = 0; i < knewks.length; ++i) {
             knew[knewks[i]].message.number = msgno;
-            self.imapMessages.messages[msgno] = knew[knewks[i]];
+            self.imapMessages[username].messages[msgno] = knew[knewks[i]];
             msgno++;
         }
-        opts.log("Now holding " + Object.keys(self.imapMessages.messages).length + " messages");
+        opts.log("Now holding " + Object.keys(self.imapMessages[username].messages).length + " messages for " +
+                 imapservername(opts, username));
+
+        callback();
     });
 }
 
@@ -453,14 +478,13 @@ Imask.prototype.start = function (callback) {
     Seq()
         .extend(Object.keys(opts.accounts))
         .parEach_(function (this_, username) {
-            opts.log("Polling " + username + "@" + opts.accounts[username].imapHost);
-            self._pollImap(opts, function (e, messages) {
+            opts.log("Polling " + imapservername(opts,username));
+            self._pollImap(username, function (e, messages) {
                 if (e) {
-                    this_("Error polling " + username + "@" +
-                          opts.accounts[username].imapHost + ":" + util.inspect(e));
+                    this_("Error polling " + imapservername(opts,username) + ':' + util.inspect(e));
                 }
                 else {
-                    self.imapMessages = messages;
+                    self.imapMessages[username] = messages;
                 }
             });
         })
@@ -485,13 +509,13 @@ Imask.prototype.start = function (callback) {
         .extend(Object.keys(opts.accounts))
         .parEach(function (username) {
             setInterval(function () {
-                self._pollImapAgain(function (e) {
+                self._pollImapAgain(username, function (e) {
                     // If there's an error repolling the imap server, log it
                     // and try again later (since the imap server has already
                     // been successfully polled once, it's most likely a
                     // temporary network issue).
                     if (e)
-                        opts.log("Error (re-)polling imap server: " + util.inspect(e));
+                        opts.log("Error (re-)polling " + imapservername(opts, username) + ':' util.inspect(e));
                 });
             }, opts.accounts[username].imapPollIntervalSeconds * 1000);
             this();
