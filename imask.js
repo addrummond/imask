@@ -464,17 +464,7 @@ Imask.prototype.start = function (callback) {
                 }
             });
         })
-        .seq
-        .catch(callback);
-
-    this._pollImap(opts, function (e, messages) {
-        if (e) {
-            callback("Error polling imap server: " + util.inspect(e));
-        }
-        else {
-            self.imapMessages = messages;
-
-            opts.log("Starting POP server...");
+        .seq_(function (this_) {
             self._startupPop(
                 function (callback) {
                     if (opts.popUseSSL) {
@@ -488,11 +478,12 @@ Imask.prototype.start = function (callback) {
                         }, callback);
                     }
                     else return net.createServer.apply(net, arguments);
-                }
-                ,
-                callback
+                },
+                this_
             );
-
+        })
+        .extend(Object.keys(opts.accounts))
+        .parEach(function (username) {
             setInterval(function () {
                 self._pollImapAgain(function (e) {
                     // If there's an error repolling the imap server, log it
@@ -501,9 +492,10 @@ Imask.prototype.start = function (callback) {
                     // temporary network issue).
                     opts.log("Error (re-)polling imap server: " + util.inspect(e));
                 });
-            }, opts.imapPollIntervalSeconds * 1000);
-        }
-    });
+            }, opts.accounts[username].imapPollIntervalSeconds * 1000);
+            this();
+        })
+        .catch(callback);
 }
 
 //
