@@ -136,7 +136,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                 else {
                     socketState.username = p.word;
                     states[p.word] = 'waitingpass';
-                    socket.write('+OK User ok\r\n', callback);
+                    socket.write('+OK User ok, send password\r\n', callback);
                 }
             }
         }
