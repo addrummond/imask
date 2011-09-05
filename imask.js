@@ -99,16 +99,19 @@ function Imask (opts) {
     this.imapMessageIdsToBeMarkedSeen = [];
     this.imapIsBeingPolled = false;
     this.lastImapPollTime = 0;
+
+    this.states = { };
+//    for (k in opts.accounts) this.states[k] = { state: 'waitingforuser'; }
 }
 
-Imask.prototype._dispatchPopCommand = function (state, socket, p, callback) {
-    var self = this;
+Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback) {
+    var self = this, states = this.states;
 
     function capa() {
         socket.write('+OK Capability list follows\r\nTOP\r\nUSER\r\nEXPIRE 1\r\nUIDL\r\n.\r\n', callback);
     }
 
-    if (state.state == 'waitinguser') {
+    if (! socketState.username) {
         if (p.command == 'APOP') {
             socket.write('-ERR Not implemented\r\n', callback);
         }
@@ -119,147 +122,157 @@ Imask.prototype._dispatchPopCommand = function (state, socket, p, callback) {
             if (p.command != 'USER') {
                 closeSocketWithError(socket, "Not authenticated", callback);
             }
-            else if (p.word != this.opts.popUsername) {
-                closeSocketWithError(socket, "No such mailbox", callback);
-            }
             else {
-                state.state = 'waitingpass';
-                socket.write('+OK User ok\r\n', callback);
+                var u = opts.accounts[p.word];
+                if (! u) {
+                    closeSocketWithError(socket, "No such mailbox", callback);
+                }
+                else {
+                    socketState.username = p.word;
+                    states[p.word] = 'waitingpass';
+                    socket.write('+OK User ok\r\n', callback);
+                }
             }
         }
     }
-    else if (state.state == 'waitingpass') {
-        if (p.command == 'APOP' || p.command == 'CAPA') {
-            socket.write('-ERR Not implemented\r\n', callback);
-        }
-        else if (p.command == 'CAPA') {
-            capa();
-        }
-        else {
-            if (p.command != 'PASS') {
-                closeSocketWithError(socket, "Not authenticated", callback);
-            }
-            else if (p.word != this.opts.popPassword) {
-                closeSocketWithError(socket, "Not authenticated", callback);
-            }
-            else {
-                state.state = 'authenticated';
-                socket.write('+OK Authenticated\r\n', callback);
-                opts.log("User authenticated");
-            }
-        }
-    }
-    else if (state.state == 'authenticated') {
-        switch (p.command) {
-            case 'NOOP': {
-                socket.write('+OK\r\n', callback);
-            } break;
-            case 'CAPA': {
-                capa();
-            } break;
-            case 'LIST': {
-                var ms = false;
-                if (p.messageNumber)
-                    ms = [p.messageNumber];
-                else ms = Object.keys(this.imapMessages.messages);
-
-                if (ms === false) {
-                    socket.write('-ERR Bad message number\r\n', callback);
+    else {
+        var state = states[socketState.username];
+        switch (state) {
+            case: 'waitingpass': {
+                if (p.command == 'APOP' || p.command == 'CAPA') {
+                    socket.write('-ERR Not implemented\r\n', callback);
+                }
+                else if (p.command == 'CAPA') {
+                    capa();
                 }
                 else {
-                    Seq()
-                        .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
-                        .extend(ms)
-                        .forEach(function (k, i) {
-                            var message = self.imapMessages.messages[k];
-                            socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
-                        })
-                        .seq(function () { socket.write('.\r\n', callback); })
-                        .catch(callback);
+                    if (p.command != 'PASS') {
+                        closeSocketWithError(socket, "Not authenticated", callback);
+                    }
+                    else if (p.word != this.opts.popPassword) {
+                        closeSocketWithError(socket, "Not authenticated", callback);
+                    }
+                    else {
+                        state.state = 'authenticated';
+                        socket.write('+OK Authenticated\r\n', callback);
+                        opts.log("User authenticated");
+                    }
                 }
             } break;
-            case 'RETR': {
-                var m = this.imapMessages.messages[p.messageNumber];
-                if (! m) {
-                    socket.write('-ERR Bad message number\r\n', callback);
-                }
-                else {
-                    opts.log("Responding to RETR for message " + p.messageNumber);
-                    Seq()
-                        .seq(function () { socket.write('+OK\r\n', this); })
-                        .extend(Object.keys(m.message.headers))
-                        .forEach(function (header) {
-                            // TODO: Intelligent handling of duplicate headers?
-                            socket.write(header + ': ' + m.message.headers[header][0] + '\r\n');
-                        })
-                        .seq(function () { socket.write('\r\n', this); })
-                        .seq(function () { writeByteStuffed(socket, m.body, this); })
-                        .seq(function () {
-                            m.retrieved = true;
-                            self.imapMessageIdsToBeMarkedSeen.push(m.message.id);
-                            callback();
-                        })
-                        .catch(callback);
+            case 'authenticated': {
+                switch (p.command) {
+                    case 'NOOP': {
+                        socket.write('+OK\r\n', callback);
+                    } break;
+                    case 'CAPA': {
+                        capa();
+                    } break;
+                    case 'LIST': {
+                        var ms = false;
+                        if (p.messageNumber)
+                            ms = [p.messageNumber];
+                        else ms = Object.keys(this.imapMessages.messages);
+        
+                        if (ms === false) {
+                            socket.write('-ERR Bad message number\r\n', callback);
+                        }
+                        else {
+                            Seq()
+                                .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
+                                .extend(ms)
+                                .forEach(function (k, i) {
+                                    var message = self.imapMessages.messages[k];
+                                    socket.write(message.number + ' ' + getMessageOctetSize(message) + '\r\n', this);
+                                })
+                                .seq(function () { socket.write('.\r\n', callback); })
+                                .catch(callback);
+                        }
+                    } break;
+                    case 'RETR': {
+                        var m = this.imapMessages.messages[p.messageNumber];
+                        if (! m) {
+                            socket.write('-ERR Bad message number\r\n', callback);
+                        }
+                        else {
+                            opts.log("Responding to RETR for message " + p.messageNumber);
+                            Seq()
+                                .seq(function () { socket.write('+OK\r\n', this); })
+                                .extend(Object.keys(m.message.headers))
+                                .forEach(function (header) {
+                                    // TODO: Intelligent handling of duplicate headers?
+                                    socket.write(header + ': ' + m.message.headers[header][0] + '\r\n');
+                                })
+                                .seq(function () { socket.write('\r\n', this); })
+                                .seq(function () { writeByteStuffed(socket, m.body, this); })
+                                .seq(function () {
+                                    m.retrieved = true;
+                                    self.imapMessageIdsToBeMarkedSeen.push(m.message.id);
+                                    callback();
+                                })
+                                .catch(callback);
+                        }
+                    } break;
+                    case 'DELE': {
+                        var m = this.imapMessages.messages[p.messageNumber];
+                        if (! m) {
+                            socket.write('-ERR Bad message number\r\n', callback);
+                        }
+                        else {
+                            this.imapMessages.deleted[p.messageNumber] = this.imapMessages.messages[p.messageNumber];
+                            delete this.imapMessages.messages[p.messageNumber];
+                            socket.write('+OK\r\n', callback);
+                        }
+                    } break;
+                    case 'QUIT': {
+                        for (k in this.imapMessages.deleted)
+                            delete this.imapMessages.messages[k];
+                        Seq()
+                            .seq(function () { socket.write('+OK\r\n', this); })
+                            .seq(function () { socket.destroySoon(); callback(); })
+                            .catch(callback);
+                    } break;
+                    case 'RSET': {
+                        for (k in this.imapMessages.deleted) {
+                            this.imapMessages.messages[k] = this.imapMessages.deleted[k];
+                            delete this.imapMessages.deleted[k];
+                        }
+                        socket.write('+OK\r\n', callback);
+                    } break;
+                    case 'STAT': {
+                        var numMessages = Object.keys(this.imapMessages.messages).length;
+                        var octetSize = 0;
+                        for (k in this.imapMessages.messages) {
+                            octetSize += new Buffer(this.imapMessages.messages[k].body).length;
+                        }
+                        socket.write('+OK ' + numMessages + ' ' + octetSize + '\r\n', 'utf-8', callback);
+                    } break;
+                    case 'UIDL': {
+                        if (typeof(p.messageNumber) != "undefined") {
+                            var m = this.imapMessages.messages[p.messageNumber];
+                            if (! m) socket.write('-ERR Bad message number\r\n', callback);
+                            else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
+                        }
+                        else {
+                            Seq()
+                                .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
+                                .extend(Object.keys(this.imapMessages.messages))
+                                .forEach(function (k, i) {
+                                    var message = self.imapMessages.messages[k];
+                                    socket.write(message.number + ' ' + message.message.id + '\r\n', this);
+                                })
+                                .seq(function () { socket.write('.\r\n', callback); })
+                                .catch(callback);
+                        }
+                    } break;
+                    default: {
+                        closeSocketWithError(socket, "Bad command in authenticated state", callback);
+                    }
                 }
             } break;
-            case 'DELE': {
-                var m = this.imapMessages.messages[p.messageNumber];
-                if (! m) {
-                    socket.write('-ERR Bad message number\r\n', callback);
-                }
-                else {
-                    this.imapMessages.deleted[p.messageNumber] = this.imapMessages.messages[p.messageNumber];
-                    delete this.imapMessages.messages[p.messageNumber];
-                    socket.write('+OK\r\n', callback);
-                }
+            default {
+                assert.ok(false, "Bad state in 'dispatch'");
             } break;
-            case 'QUIT': {
-                for (k in this.imapMessages.deleted)
-                    delete this.imapMessages.messages[k];
-                Seq()
-                    .seq(function () { socket.write('+OK\r\n', this); })
-                    .seq(function () { socket.destroySoon(); callback(); })
-                    .catch(callback);
-            } break;
-            case 'RSET': {
-                for (k in this.imapMessages.deleted) {
-                    this.imapMessages.messages[k] = this.imapMessages.deleted[k];
-                    delete this.imapMessages.deleted[k];
-                }
-                socket.write('+OK\r\n', callback);
-            } break;
-            case 'STAT': {
-                var numMessages = Object.keys(this.imapMessages.messages).length;
-                var octetSize = 0;
-                for (k in this.imapMessages.messages) {
-                    octetSize += new Buffer(this.imapMessages.messages[k].body).length;
-                }
-                socket.write('+OK ' + numMessages + ' ' + octetSize + '\r\n', 'utf-8', callback);
-            } break;
-            case 'UIDL': {
-                if (typeof(p.messageNumber) != "undefined") {
-                    var m = this.imapMessages.messages[p.messageNumber];
-                    if (! m) socket.write('-ERR Bad message number\r\n', callback);
-                    else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
-                }
-                else {
-                    Seq()
-                        .seq(function () { socket.write('+OK ' + Object.keys(self.imapMessages.messages).length + ' messages\r\n', this); })
-                        .extend(Object.keys(this.imapMessages.messages))
-                        .forEach(function (k, i) {
-                            var message = self.imapMessages.messages[k];
-                            socket.write(message.number + ' ' + message.message.id + '\r\n', this);
-                        })
-                        .seq(function () { socket.write('.\r\n', callback); })
-                        .catch(callback);
-                }
-            } break;
-            default: {
-                closeSocketWithError(socket, "Bad command in authenticated state", callback);
-            }
         }
-    }
-    else assert.ok(false, "Bad state in 'dispatch'");
 }
 
 Imask.prototype._startupPop = function (createServerFunc, callback) {
@@ -270,8 +283,7 @@ Imask.prototype._startupPop = function (createServerFunc, callback) {
 
         socket.write("+OK POP3 server ready\r\n");
 
-        var state = { state: 'waitinguser' }
-
+        var socketState = { };
         var currentBuffer = [];
         socket.on('data', function (s) {
             currentBuffer.push(s);
@@ -285,7 +297,7 @@ Imask.prototype._startupPop = function (createServerFunc, callback) {
                     socket.destroySoon();
                 }
                 else {
-                    self._dispatchPopCommand(state, socket, p, function (e) {
+                    self._dispatchPopCommand(socket, socketState, p, function (e) {
                         if (e) {
                             opts.log("Connection error:");
                             opts.log(e);
@@ -435,6 +447,24 @@ Imask.prototype._pollImapAgain = function (callback) {
 
 Imask.prototype.start = function (callback) {
     var self = this, opts = this.opts;
+
+    opts.log("Performing initial poll of IMAP accounts...");
+    Seq()
+        .extend(Object.keys(opts.accounts))
+        .parEach_(function (this_, username) {
+            opts.log("Polling " + username + "@" + opts.accounts[username].imapHost);
+            self._pollImap(opts, function (e, messages) {
+                if (e) {
+                    this_("Error polling " + username + "@" +
+                          opts.accounts[username].imapHost + ":" + util.inspect(e));
+                }
+                else {
+                    self.imapMessages = messages;
+                }
+            });
+        })
+        .seq
+        .catch(callback);
 
     this._pollImap(opts, function (e, messages) {
         if (e) {
