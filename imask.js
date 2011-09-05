@@ -523,6 +523,8 @@ if (require.main === module) {
                 process.exit(1);
             }
 
+            log("Imask started");
+
             var imask = new Imask(opts);
             imask.start(function (e) {
                 if (e) {
@@ -530,8 +532,6 @@ if (require.main === module) {
                     process.exit(1);
                 }
             });
-
-            log("Imask started");
         }
     });
 }
