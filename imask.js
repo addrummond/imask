@@ -571,9 +571,6 @@ if (require.main === module) {
                 process.exit(1);
             }
 
-            if (opts.logFile)
-                opts.logFile = opts.logFile.replace("~", home);
-
             // Check that there aren't two POP accounts masking the same IMAP account.
             var seen = { };
             for (popUsername in opts.accounts) {
@@ -585,7 +582,7 @@ if (require.main === module) {
             }
 
             if (! opts.log) {
-                var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile) : undefined);
+                var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
                 opts.log = function (level, msg) {
                     if (level == 'error') mylog.error(msg);
                     if (level == 'info') mylog.info(msg);

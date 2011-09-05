@@ -14,6 +14,8 @@ sole command line argument.
 The configuration file is a JSON dictionary, e.g.:
 
     {
+        "log
+
         "popPort": "110",
         "popUseSSL": true,
         "popSSLKeyFile": "~/server-key.pem",
