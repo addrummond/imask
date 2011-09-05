@@ -137,7 +137,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
         var username = socketState.username;
         var state = states[username];
         switch (state) {
-            case: 'waitingpass': {
+            case 'waitingpass': {
                 if (p.command == 'APOP' || p.command == 'CAPA') {
                     socket.write('-ERR Not implemented\r\n', callback);
                 }
@@ -280,10 +280,11 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                     }
                 }
             } break;
-            default {
+            default: {
                 assert.ok(false, "Bad state in 'dispatch'");
             } break;
         }
+    }
 }
 
 Imask.prototype._startupPop = function (createServerFunc, callback) {
@@ -515,7 +516,7 @@ Imask.prototype.start = function (callback) {
                     // been successfully polled once, it's most likely a
                     // temporary network issue).
                     if (e)
-                        opts.log("Error (re-)polling " + imapservername(opts, username) + ':' util.inspect(e));
+                        opts.log("Error (re-)polling " + imapservername(opts, username) + ':' + util.inspect(e));
                 });
             }, opts.accounts[username].imapPollIntervalSeconds * 1000);
             this();
