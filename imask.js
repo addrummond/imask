@@ -135,8 +135,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
     }
     else {
         var username = socketState.username;
-        var state = states[username];
-        switch (state) {
+        switch (states[username]) {
             case 'waitingpass': {
                 if (p.command == 'APOP' || p.command == 'CAPA') {
                     socket.write('-ERR Not implemented\r\n', callback);
@@ -148,11 +147,11 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                     if (p.command != 'PASS') {
                         closeSocketWithError(socket, "Not authenticated", callback);
                     }
-                    else if (p.word != this.opts.popPassword) {
+                    else if (p.word != this.opts.accounts[username].popPassword) {
                         closeSocketWithError(socket, "Not authenticated", callback);
                     }
                     else {
-                        state.state = 'authenticated';
+                        states[username] = 'authenticated';
                         socket.write('+OK Authenticated\r\n', callback);
                         opts.log("User " + username + " authenticated");
                     }
@@ -287,7 +286,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
     }
 }
 
-Imask.prototype._startupPop = function (createServerFunc, callback) {
+Imask.prototype._startPop = function (createServerFunc, callback) {
     var self = this, opts = this.opts;
 
     var server = createServerFunc(function (socket) {
@@ -489,11 +488,12 @@ Imask.prototype.start = function (callback) {
                 }
                 else {
                     self.imapMessages[username] = messages;
+                    this_();
                 }
             });
         })
         .seq_(function (this_) {
-            self._startupPop(
+            self._startPop(
                 function (callback) {
                     if (opts.popUseSSL) {
                         return tls.createServer({
