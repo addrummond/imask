@@ -4,11 +4,8 @@ var net = require('net'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq'),
+    Log = require('Log'),
     assert = require('assert');
-
-function log(s) {
-    console.log(new Date().toJSON() + ' ' + s);
-}
 
 function getFirstWord(s) {
     var a = s.split(/\s+/);
@@ -90,8 +87,15 @@ function parsePop(s) {
 
 function Imask (opts) {
     this.opts = opts;
-    if (! this.opts.log)
-        this.opts.log = log;
+    if (! this.opts.log) {
+        // This will never get used when this script is executed,
+        // but it might get used if Imask is used as a lib.
+        this.opts.log = function (level, msg) {
+            if (level == 'info') console.log(msg);
+            else if (level == 'error') console.error(msg);
+            else assert(false, "Bad log level");
+        }
+    }
 
     this.imapMessages = { };  // Will be a dict POP_username -> { messages, deleted }, where
                               // 'messages' and 'deleted' are imap-message-id-keyed
@@ -157,7 +161,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                     else {
                         states[username] = 'authenticated';
                         socket.write('+OK Authenticated\r\n', callback);
-                        opts.log("User " + username + " authenticated");
+                        opts.log('info', "User " + username + " authenticated");
                     }
                 }
             } break;
@@ -202,7 +206,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                             socket.write('-ERR Bad message number\r\n', callback);
                         }
                         else {
-                            opts.log("Responding to RETR for message " + p.messageNumber + " of " + username);
+                            opts.log('info', "Responding to RETR for message " + p.messageNumber + " of " + username);
                             Seq()
                                 .seq(function () { socket.write('+OK\r\n', this); })
                                 .extend(Object.keys(m.message.headers))
@@ -307,14 +311,15 @@ Imask.prototype._startPop = function (createServerFunc, callback) {
                 currentBuffer = [];
 
                 if (typeof(p) == "string") {
-                    opts.log("Bad command was recieved: " + p);
+                    // This is an error from the client's perspective, but not from ours.
+                    opts.log('info', "Bad command was recieved: " + p);
                     socket.write("+ERR Bad command\r\n");
                     socket.destroySoon();
                 }
                 else {
                     self._dispatchPopCommand(socket, socketState, p, function (e) {
                         if (e) {
-                            opts.log("Connection error:");
+                            opts.log('error', "Connection error:");
                             opts.log(e);
                             socket.destroy();
                         }
@@ -326,7 +331,7 @@ Imask.prototype._startPop = function (createServerFunc, callback) {
 
     server.listen(opts.popPort, function (e) {
         if (! e)
-            opts.log("POP server started");
+            opts.log('info', "POP server started");
         callback(e);
     });
 }
@@ -356,10 +361,11 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
             if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen.length) {
-                opts.log("Marking messages as seen for " + imapservername(opts, username));
+                opts.log('info', "Marking messages as seen for " + imapservername(opts, username));
                 imap.addFlags(self.imapMessageIdsToBeMarkedSeen, 'Seen', function (e) {
                     if (e) this_(e);
-                    opts.log("Marked " + self.imapMessageIdsToBeMarkedSeen.join(',') + " as seen on " +
+                    opts.log('info',
+                             "Marked " + self.imapMessageIdsToBeMarkedSeen.join(',') + " as seen on " +
                              imapservername(opts, username));
                     self.imapMessageIdsToBeMarkedSeen = [];
                     this_();
@@ -370,12 +376,12 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
                                        : 'UNSEEN', this); })
         .seq(function (xs) {
-            opts.log("Fetching " + xs.length + " messages for " + imapservername(opts, username) + " ...");
+            opts.log('info', "Fetching " + xs.length + " messages for " + imapservername(opts, username) + " ...");
             this(null, xs);
         })
         .flatten()
         .parMap_(function (this_, id, index) {
-            opts.log("Fetching message " + id + "for " + imapservername(opts, username));
+            opts.log('info', "Fetching message " + id + "for " + imapservername(opts, username));
             this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
                 imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
@@ -408,7 +414,7 @@ Imask.prototype._pollImap = function(username, callback) {
     var messages = { }; // Keyed by POP message number.
 
     this.imapIsBeingPolled[username] = true;
-    opts.log("Polling the IMAP server for " + imapservername(opts, username) + " ...");
+    opts.log('info', "Polling the IMAP server for " + imapservername(opts, username) + " ...");
 
     this._retrieveFromImap(
         username,
@@ -436,7 +442,7 @@ Imask.prototype._pollImapAgain = function (username, callback) {
     var self = this, opts = this.opts;
 
     if (this.imapIsBeingPolled[username]) {
-        opts.log("Attempt to poll IMAP server for " +
+        opts.log('info', "Attempt to poll IMAP server for " +
                  imapservername(opts, username) +
                  " while polling already underway");
         callback(); // This isn't an error condition -- we just don't want to
@@ -457,7 +463,7 @@ Imask.prototype._pollImapAgain = function (username, callback) {
         //
         // All of this is just to stop a memory leak (we don't want
         // to keep every old message ever in memory).
-        opts.log("Merging old and new for " + imapservername(opts, username) + " ...");
+        opts.log('info', "Merging old and new for " + imapservername(opts, username) + " ...");
         var old = imapMessages_.messages;
         var knew = self.imapMessages[username].messages;
         var oldks = Object.keys(old).sort();
@@ -475,7 +481,8 @@ Imask.prototype._pollImapAgain = function (username, callback) {
             self.imapMessages[username].messages[msgno] = knew[knewks[i]];
             msgno++;
         }
-        opts.log("Now holding " + Object.keys(self.imapMessages[username].messages).length + " messages for " +
+        opts.log('info',
+                 "Now holding " + Object.keys(self.imapMessages[username].messages).length + " messages for " +
                  imapservername(opts, username));
 
         callback();
@@ -485,7 +492,7 @@ Imask.prototype._pollImapAgain = function (username, callback) {
 Imask.prototype.start = function (callback) {
     var self = this, opts = this.opts;
 
-    opts.log("Performing initial poll of IMAP accounts...");
+    opts.log('info', "Performing initial poll of IMAP accounts...");
     Seq()
         .extend(Object.keys(opts.accounts))
         .parEach_(function (this_, username) {
@@ -494,7 +501,7 @@ Imask.prototype.start = function (callback) {
                     this_("Error polling IMAP server for " + imapservername(opts,username) + ':' + util.inspect(e));
                 }
                 else {
-                    opts.log("Finished polling IMAP server for " + imapservername(opts,username));
+                    opts.log('info', "Finished polling IMAP server for " + imapservername(opts,username));
                     self.imapMessages[username] = messages;
                     this_();
                 }
@@ -529,7 +536,9 @@ Imask.prototype.start = function (callback) {
                     // been successfully polled once, it's most likely a
                     // temporary network issue).
                     if (e)
-                        opts.log("Error (re-)polling IMAP server for" + imapservername(opts, username) + ':' + util.inspect(e));
+                        opts.log('error',
+                                 "Error (re-)polling IMAP server for" +
+                                 imapservername(opts, username) + ':' + util.inspect(e));
                 });
             },  interval);
             this();
@@ -562,6 +571,9 @@ if (require.main === module) {
                 process.exit(1);
             }
 
+            if (opts.logFile)
+                opts.logFile = opts.logFile.replace("~", home);
+
             // Check that there aren't two POP accounts masking the same IMAP account.
             var seen = { };
             for (popUsername in opts.accounts) {
@@ -572,12 +584,21 @@ if (require.main === module) {
                 seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost] = true;
             }
 
-            opts.log("Imask started");
+            if (! opts.log) {
+                var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile) : undefined);
+                opts.log = function (level, msg) {
+                    if (level == 'error') mylog.error(msg);
+                    if (level == 'info') mylog.info(msg);
+                    else assert(false, "Bad log level");
+                }
+            }
+
+            opts.log('info', "Imask started");
 
             var imask = new Imask(opts);
             imask.start(function (e) {
                 if (e) {
-                    opts.log(e);
+                    opts.log('error', e);
                     process.exit(1);
                 }
             });
