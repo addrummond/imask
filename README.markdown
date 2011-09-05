@@ -90,5 +90,5 @@ got bored trying to make this work.)
 
 Limitations
 ===========
-Currently, can only retrieve messages from one mailbox of the IMAP
-server. This limitation will hopefully be removed shortly.
+Currently, imask can only retrieve messages from one mailbox of the
+IMAP server. This limitation will hopefully be removed shortly.
