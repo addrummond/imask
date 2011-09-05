@@ -4,7 +4,7 @@ var net = require('net'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq'),
-    Log = require('Log'),
+    Log = require('log'),
     assert = require('assert');
 
 function getFirstWord(s) {
@@ -582,7 +582,8 @@ if (require.main === module) {
                 seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost] = true;
             }
 
-            var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
+            var mylog = new Log(Log.INFO,
+                                opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
             opts.log = function (level, msg) {
                 if (level == 'error') mylog.error(msg);
                 if (level == 'info') mylog.info(msg);
