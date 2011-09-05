@@ -581,13 +581,11 @@ if (require.main === module) {
                 seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost] = true;
             }
 
-            if (! opts.log) {
-                var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
-                opts.log = function (level, msg) {
-                    if (level == 'error') mylog.error(msg);
-                    if (level == 'info') mylog.info(msg);
-                    else assert(false, "Bad log level");
-                }
+            var mylog = new Log(Log.INFO, opts.logFile ? fs.createWriteStream(opts.logFile.replace("~", home)) : undefined);
+            opts.log = function (level, msg) {
+                if (level == 'error') mylog.error(msg);
+                if (level == 'info') mylog.info(msg);
+                else assert(false, "Bad log level");
             }
 
             opts.log('info', "Imask started");
