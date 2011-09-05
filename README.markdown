@@ -76,7 +76,7 @@ attempt to save any state allowing it to determine which messages were
 retrieved via the pop server the last time it was run.) In the case of
 GMail's POP client, this appears to work.
 
-Imask stores everything in memory, and does not write anything to
+Imask stores everything in memory and does not write anything to
 disk.
 
 Why you might want this
