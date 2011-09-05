@@ -4,7 +4,7 @@ var net = require('net'),
     fs = require('fs'),
     ImapConnection = require('imap').ImapConnection,
     Seq = require('seq'),
-    Log = require('Log'),
+    Log = require('log').Log,
     assert = require('assert');
 
 function getFirstWord(s) {
