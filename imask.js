@@ -93,13 +93,17 @@ function Imask (opts) {
     if (! this.opts.log)
         this.opts.log = log;
 
-    this.imapMessages = { };  // Will be a dict IMAP_username -> { messages, deleted }, where
+    this.imapMessages = { };  // Will be a dict POP_username -> { messages, deleted }, where
                               // 'messages' and 'deleted' are imap-message-id-keyed
                               // dicts.
-    this.imapMessageIdsToBeMarkedSeen = { }; // IMAP_username -> [message_id1, message_id2, ...]
-    this.imapIsBeingPolled = { }; // IMAP_username -> bool
 
-    this.states = { };
+    this.imapMessageIdsToBeMarkedSeen = { }; // POP_username -> [message_id1, message_id2, ...]
+    for (username in this.opts.accounts)
+        this.imapMessageIdsToBeMarkedSeen[username] = [];
+
+    this.imapIsBeingPolled = { }; // POP_username -> bool
+
+    this.states = { }; // POP_username -> POP server states.
 }
 
 Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback) {
@@ -320,18 +324,21 @@ Imask.prototype._startPop = function (createServerFunc, callback) {
         });
     });
 
-    server.listen(opts.popPort);
-    opts.log("POP server started");
+    server.listen(opts.popPort, function (e) {
+        if (! e)
+            opts.log("POP server started");
+        callback(e);
+    });
 }
 
 function imapservername(opts, username) { // Used in logging.
-    return opts.accounts[username].imapUsername + '@' + opts.accounts[username].imapHost;
+    return '"' + opts.accounts[username].imapUsername + '"@' + opts.accounts[username].imapHost;
 }
 
 Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback) {
     var self = this, opts = this.opts;
 
-    imap = new ImapConnection({
+    var imap = new ImapConnection({
         username: opts.accounts[username].imapUsername,
         password: opts.accounts[username].imapPassword,
         host: opts.accounts[username].imapHost,
@@ -400,7 +407,7 @@ Imask.prototype._pollImap = function(username, callback) {
     var self = this, opts = this.opts;
     var messages = { }; // Keyed by POP message number.
 
-    this.imapIsBeingPolled = true;
+    this.imapIsBeingPolled[username] = true;
     opts.log("Polling the IMAP server for " + imapservername(opts, username) + " ...");
 
     this._retrieveFromImap(
@@ -417,7 +424,7 @@ Imask.prototype._pollImap = function(username, callback) {
                 
                 if (e) callback(e);
                 else {
-                    self.imapIsBeingPolled = false;
+                    self.imapIsBeingPolled[username] = false;
                     callback(null, { messages: messages, deleted: { } });
                 }
             }
@@ -428,7 +435,7 @@ Imask.prototype._pollImap = function(username, callback) {
 Imask.prototype._pollImapAgain = function (username, callback) {
     var self = this, opts = this.opts;
 
-    if (this.imapIsBeingPolled) {
+    if (this.imapIsBeingPolled[username]) {
         opts.log("Attempt to poll IMAP server for " +
                  imapservername(opts, username) +
                  " while polling already underway");
@@ -487,7 +494,7 @@ Imask.prototype.start = function (callback) {
                     this_("Error polling IMAP server for " + imapservername(opts,username) + ':' + util.inspect(e));
                 }
                 else {
-                    console.log("Finished polling IMAP server for " + impaservername(opts,username));
+                    opts.log("Finished polling IMAP server for " + imapservername(opts,username));
                     self.imapMessages[username] = messages;
                     this_();
                 }
@@ -512,7 +519,9 @@ Imask.prototype.start = function (callback) {
             );
         })
         .extend(Object.keys(opts.accounts))
-        .parEach(function (username) {
+        .forEach(function (username) {
+            var interval = opts.accounts[username].imapPollIntervalSeconds;
+            if (interval) interval *= 1000; else interval = 15 * 60 * 1000;
             setInterval(function () {
                 self._pollImapAgain(username, function (e) {
                     // If there's an error repolling the imap server, log it
@@ -522,7 +531,7 @@ Imask.prototype.start = function (callback) {
                     if (e)
                         opts.log("Error (re-)polling " + imapservername(opts, username) + ':' + util.inspect(e));
                 });
-            }, opts.accounts[username].imapPollIntervalSeconds * 1000);
+            },  interval);
             this();
         })
         .catch(callback);
