@@ -532,7 +532,7 @@ Imask.prototype.start = function (callback) {
 //
 if (require.main === module) {
     if (process.argv.length > 3) {
-        opts.log("Bad usage");
+        console.log("Bad usage");
         process.exit(1);
     }
 
@@ -542,14 +542,24 @@ if (require.main === module) {
     var config = process.argv.length == 3 ? process.argv[2] : process.env.HOME + '/.imask';
     fs.readFile(config, function (e, buffer) {
         if (e) {
-            log("Unable to read configuration file " + config);
+            console.log("Unable to read configuration file " + config);
             process.exit(1);
         }
         else {
             try { opts = JSON.parse(buffer); }
             catch (err) {
-                log("Error parsing configuration file " + config + " as JSON -- " + err);
+                console.log("Error parsing configuration file " + config + " as JSON -- " + err);
                 process.exit(1);
+            }
+
+            // Check that there aren't two POP accounts masking the same IMAP account.
+            var seen = { };
+            for (popUsername in opts.accounts) {
+                if (seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost]) {
+                    console.log("Bad config: you can't mask the same IMAP account with multiple POP accounts.");
+                    process.exit(1);
+                }
+                seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost] = true;
             }
 
             log("Imask started");
