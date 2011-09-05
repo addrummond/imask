@@ -57,8 +57,8 @@ information to stdout, so it should be run as follows:
 Messages which are retrieved from the POP server are marked as unseen
 (i.e. unread) on the IMAP server, unless `imapReadOnly` is
 true. Applications connecting to the POP server must use PASS
-authentication with the username `popUsername` and the password
-`popPassword`.
+authentication with one of the username/password pairs specified in
+the configuration file.
 
 The `imapMessageAgeLimitDays` option can be used to stop imask
 retrieving old messages from the IMAP server, even if they are
