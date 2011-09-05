@@ -484,9 +484,10 @@ Imask.prototype.start = function (callback) {
         .parEach_(function (this_, username) {
             self._pollImap(username, function (e, messages) {
                 if (e) {
-                    this_("Error polling " + imapservername(opts,username) + ':' + util.inspect(e));
+                    this_("Error polling IMAP server for " + imapservername(opts,username) + ':' + util.inspect(e));
                 }
                 else {
+                    console.log("Finished polling IMAP server for " + impaservername(opts,username));
                     self.imapMessages[username] = messages;
                     this_();
                 }
