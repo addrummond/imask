@@ -1,5 +1,4 @@
-A rather silly node.js script that masks an IMAP server behind a
-simple POP3 server.
+Node.js program that masks an IMAP server behind a simple POP3 server.
 
 Requires the `seq` and `imap` modules. I recommend the latest git version
 of the `imap` module, since it has some bugfixes which are not yet in
@@ -15,21 +14,37 @@ sole command line argument.
 The configuration file is a JSON dictionary, e.g.:
 
     {
-        "popUsername": "choose_a_username",
-        "popPassword": "choose_a_password",
         "popPort": "110",
         "popUseSSL": true,
         "popSSLKeyFile": "~/server-key.pem",
         "popSSLCertFile": "~/server-cert.pem",
-        "imapHost": "imap.xxx.xxx",
-        "imapPort": 143,
-        "imapUseSSL": false,
-        "imapUsername": "my_email_username",
-        "imapPassword": "my_email_password",
-        "imapMailbox": "INBOX",
-        "imapPollIntervalSeconds": 180,
-        "imapReadOnly": false,
-        "imapMessageAgeLimitDays": 30
+
+        "accounts": {
+            "pop_user_1_username": {
+                "popPassword": "pop_user_1_password",
+                "imapHost": "imap.xxx.xxx",
+                "imapPort": 143,
+                "imapUseSSL": false,
+                "imapUsername": "my_email_username",
+                "imapPassword": "my_email_password",
+                "imapMailbox": "INBOX",
+                "imapPollIntervalSeconds": 180,
+                "imapReadOnly": false,
+                "imapMessageAgeLimitDays": 30
+            },
+            "pop_user_2_username": {
+                "popPassword": "pop_user_2_password",
+                "imapHost": "imap.xxx.xxx",
+                "imapPort": 993,
+                "imapUseSSL": true,
+                "imapUsername": "my_email_username",
+                "imapPassword": "my_email_password",
+                "imapMailbox": "INBOX",
+                "imapPollIntervalSeconds": 180,
+                "imapReadOnly": false,
+                "imapMessageAgeLimitDays": 30
+            },
+        }
     }
 
 The `popUseSSL` key can be set to true to have the POP server use
@@ -61,6 +76,9 @@ attempt to save any state allowing it to determine which messages were
 retrieved via the pop server the last time it was run.) In the case of
 GMail's POP client, this appears to work.
 
+Imask stores everything in memory, and does not write anything to
+disk.
+
 Why you might want this
 =======================
 GMail can automatically poll a POP server for mail, but not an IMAP
@@ -72,6 +90,5 @@ got bored trying to make this work.)
 
 Limitations
 ===========
-Currently, Imask can only handle one user account, and can only
-retrieve messages from one mailbox of the IMAP server. These
-limitations will hopefully be removed shortly.
+Currently, can only retrieve messages from one mailbox of the IMAP
+server. This limitation will hopefully be removed shortly.
