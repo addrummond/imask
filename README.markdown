@@ -48,7 +48,7 @@ The configuration file is a JSON dictionary, e.g.:
     }
 
 The `popUseSSL` key can be set to true to have the POP server use
-SSL. If the `imapUseSSL' key is set to true, imask attempts to connect
+SSL. If the `imapUseSSL` key is set to true, imask attempts to connect
 to the IMAP server over SSL. The server prints some simple logging
 information to stdout, so it should be run as follows:
 
