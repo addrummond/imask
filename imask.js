@@ -230,7 +230,8 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                             socket.write('-ERR Bad message number\r\n', callback);
                         }
                         else {
-                            this.imapMessages[username].deleted[p.messageNumber] = this.imapMessages[username].messages[p.messageNumber];
+                            this.imapMessages[username].deleted[p.messageNumber] =
+                                this.imapMessages[username].messages[p.messageNumber];
                             delete this.imapMessages[username].messages[p.messageNumber];
                             socket.write('+OK\r\n', callback);
                         }
