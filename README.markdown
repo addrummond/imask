@@ -14,7 +14,7 @@ sole command line argument.
 The configuration file is a JSON dictionary, e.g.:
 
     {
-        "log
+        "logFile": "~/mylogfile",
 
         "popPort": "110",
         "popUseSSL": true,
@@ -51,11 +51,18 @@ The configuration file is a JSON dictionary, e.g.:
 
 The `popUseSSL` key can be set to true to have the POP server use
 SSL. If the `imapUseSSL` key is set to true, imask attempts to connect
-to the IMAP server over SSL. The server prints some simple logging
-information to stdout, so it should be run as follows:
+to the IMAP server over SSL. If no log file is specified, imask logs
+to stdout and stderr. Once the configuration file is set up imask can
+be started as follows:
 
-    node imask.js > log
+    node imask.js
 
+Or with the configuration file explicitly specified:
+
+    node imask.js /my/configuration/file
+
+POP/IMAP interaction
+====================
 Messages which are retrieved from the POP server are marked as unseen
 (i.e. unread) on the IMAP server, unless `imapReadOnly` is
 true. Applications connecting to the POP server must use PASS
