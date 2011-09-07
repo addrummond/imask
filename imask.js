@@ -341,6 +341,19 @@ function imapservername(opts, username) { // Used in logging.
     return '"' + opts.accounts[username].imapUsername + '"@' + opts.accounts[username].imapHost;
 }
 
+function mailboxlist(boxes, prefix, list) {
+    if (! prefix) prefix = [];
+    if (! list) list = [];
+
+    for (k in boxes) {
+        list.push(prefix.join('') + k);
+        if (boxes[k] && boxes[k].children !== null)
+            mailboxlist(boxes[k].children, prefix.concat([k + (boxes[k].delim ? boxes[k].delim : '/')]), list);
+    }
+
+    return list.map(function (x) { return '"' + x + '"'; }).join(', ');
+}
+
 Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback) {
     var self = this, opts = this.opts;
 
@@ -357,6 +370,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .seq(function () { imap.connect(this); })
         .seq(function () { imap.getBoxes(this); })
         .seq(function (boxes) {
+            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
             imap.openBox(opts.accounts[username].imapMailbox, opts.accounts[username].imapReadOnly, this);
         })
         .seq_(function (this_) {
