@@ -694,16 +694,18 @@ if (require.main === module) {
                 else assert.ok(false, "Bad log level");
             }
 
+            var imask = new Imask(opts);
+
             process.on("uncaughtException", function (e) {
                 e.ignore = true;
                 opts.log('error', "Uncaught exception (ignoring): " + util.inspect(e.stack, true, 5) + " -- " +
                                   "this should not happen, server may now be in an undefined state and " +
                                   "should be restarted.");
+                imask.imapIsBeingPolled = false; // Bit of a hack.
             });
 
             opts.log('info', "Imask started");
 
-            var imask = new Imask(opts);
             imask.start(function (e) {
                 if (e) {
                     opts.log('error', util.inspect(e));
