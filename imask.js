@@ -53,7 +53,8 @@ function writeByteStuffed(socket, string, callback) {
             }
         })
         .seq(function () { socket.write('\r\n.\r\n', this); })
-        .seq(callback).catch(callback);
+        .seq(callback)
+        .catch(callback);
 }
 
 function parsePop(s) {
@@ -218,7 +219,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                                 .seq(function () { writeByteStuffed(socket, m.body, this); })
                                 .seq(function () {
                                     m.retrieved = true;
-                                    self.imapMessageIdsToBeMarkedSeen[username].push(m.message.id);
+                                    self.imapMessageIdsToBeMarkedSeen[username].push([m.mailbox, m.message.id]);
                                     callback();
                                 })
                                 .catch(callback);
@@ -374,14 +375,44 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             // at some earlier point.
             if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen[username].length) {
                 opts.log('info', "Marking messages as seen for " + imapservername(opts, username));
-                imap.addFlags(self.imapMessageIdsToBeMarkedSeen[username], 'Seen', function (e) {
-                    if (e) this_(e);
-                    opts.log('info',
-                             "Marked " + self.imapMessageIdsToBeMarkedSeen[username].join(',') + " as seen on " +
-                             imapservername(opts, username));
-                    self.imapMessageIdsToBeMarkedSeen[username] = [];
-                    this_();
-                });
+                // Sort and group by mailbox.
+                var sorted = self.imapMessageIdsToBeMarkedSeen[username].slice(0)
+                            .sort(function (x, y) { return x[0].localeCompare(y[0]); });
+                var grouped = [];
+                var current = [];
+                var lastmailbox = self.imapMessageIdsToBeMarkedSeen[username][0][0];
+                for (var i = 0; i < sorted.length; ++i) {
+                    if (sorted[i][0] == lastmailbox)
+                        current.push(sorted[i][1]);
+                    else {
+                        grouped.push({ ids: current, mailbox: lastmailbox });
+                        current = [sorted[i][1]];
+                    }
+                }
+                grouped.push({ ids: current, mailbox: lastmailbox });
+
+                Seq(grouped)
+                    .forEach_(function (this__, tobemarked) {
+                        var mailbox = tobemarked.mailbox, ids = tobemarked.ids;
+                        imap.openBox(mailbox, false, function (e) {
+                            if (e) this__(e);
+                            else {
+                                imap.addFlags(ids, 'Seen', function (e) {
+                                    if (e) this__(e);
+                                    else {
+                                        opts.log('info', "Marked " + ids.join(',') + " as seen on " +
+                                                 imapservername(opts, username));
+                                        this__();
+                                    }
+                                });
+                            }
+                        });
+                    })
+                    .seq(function () {
+                        self.imapMessageIdsToBeMarkedSeen[username] = [];
+                        this_()
+                    })
+                    .catch(this_);
             }
             else this_();
         })
@@ -428,8 +459,9 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                 return;
             }
 
+            var currentMailboxIndex = this.vars.currentMailboxIndex++;
             imap.openBox(
-                opts.accounts[username].imapMailboxes[this.vars.currentMailboxIndex++],
+                opts.accounts[username].imapMailboxes[currentMailboxIndex],
                 opts.accounts[username].imapReadOnly,
                 function (e) {
                     if (e) this_(e);
@@ -438,18 +470,22 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                         var count = 0;
                         var currentMsgNum = 1;
                         // Get headers.
-                        imap.fetch(resultList, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
+                        imap.fetch(resultList, { request: { headers: true, body: false, struct: false }})
+                        .on('message', function (m) {
                             ++count;
                             m.on('end', function () {
                                 if (typeof(results[m.id]) == "undefined") results[m.id] = { };
                                 results[m.id].message = m;
+                                results[m.id].mailbox =
+                                    opts.accounts[username].imapMailboxes[currentMailboxIndex];
                             })
                             .on('error', this_);
                         }).on('error', function (e) { this_(e); });
                         // Get bodies.
-                        imap.fetch(resultList, { request: { headers: false, body: true, struct: false }}).on('message', function (m) {
+                        imap.fetch(resultList, { request: { headers: false, body: true, struct: false }})
+                        .on('message', function (m) {
                             var msgText = [];
-                           m.on('data', function (chunk) { msgText.push(chunk); })
+                            m.on('data', function (chunk) { msgText.push(chunk); })
                             .on('end', function () {
                                 if (typeof(results[m.id]) == "undefined") results[m.id] = { };
                                 results[m.id].number = base + currentMsgNum++;
