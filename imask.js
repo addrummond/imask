@@ -413,10 +413,13 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                 rsWithBaseId.push([resultList, lastBase]);
                 lastBase += resultList.length;
             });
+            assert.ok(rsWithBaseId.length == opts.accounts[username].imapMailboxes.length,
+                      "Mismatched lengths");
+            this.vars.currentMailboxIndex = 0;
             this(null, rsWithBaseId);
         })
         .flatten(false)
-        .parMap_(function (this_, resultListPr) {
+        .seqMap_(function (this_, resultListPr) {
             var resultList = resultListPr[0];
             var base = resultListPr[1];
 
@@ -425,36 +428,44 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                 return;
             }
 
-            var results = { }; // Keyed by IMAP id.
-            var count = 0;
-            var currentMsgNum = 1;
-            // Get headers.
-            imap.fetch(resultList, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
-                ++count;
-                m.on('end', function () {
-                    if (typeof(results[m.id]) == "undefined") results[m.id] = { };
-                    results[m.id].message = m;
-                })
-                .on('error', this_);
-            }).on('error', function (e) { this_(e); });
-            // Get bodies.
-            imap.fetch(resultList, { request: { headers: false, body: true, struct: false }}).on('message', function (m) {
-                var msgText = [];
-                m.on('data', function (chunk) { msgText.push(chunk); })
-                .on('end', function () {
-                    if (typeof(results[m.id]) == "undefined") results[m.id] = { };
-                    results[m.id].number = base + currentMsgNum++;
-                    results[m.id].body = msgText.join('');
-                    opts.log('info', "Fetched message IMAP=" + m.id + //" POP=" + (results[m.id].number || "?") +
-                                     " for " + imapservername(opts, username));
-                    ++count;
-                    if (count == resultList.length * 2) {
-                        this_(null, Object.keys(results).map(function (k) { return results[k]; }));
+            imap.openBox(
+                opts.accounts[username].imapMailboxes[this.vars.currentMailboxIndex++],
+                opts.accounts[username].imapReadOnly,
+                function (e) {
+                    if (e) this_(e);
+                    else {
+                        var results = { }; // Keyed by IMAP id.
+                        var count = 0;
+                        var currentMsgNum = 1;
+                        // Get headers.
+                        imap.fetch(resultList, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
+                            ++count;
+                            m.on('end', function () {
+                                if (typeof(results[m.id]) == "undefined") results[m.id] = { };
+                                results[m.id].message = m;
+                            })
+                            .on('error', this_);
+                        }).on('error', function (e) { this_(e); });
+                        // Get bodies.
+                        imap.fetch(resultList, { request: { headers: false, body: true, struct: false }}).on('message', function (m) {
+                            var msgText = [];
+                           m.on('data', function (chunk) { msgText.push(chunk); })
+                            .on('end', function () {
+                                if (typeof(results[m.id]) == "undefined") results[m.id] = { };
+                                results[m.id].number = base + currentMsgNum++;
+                                results[m.id].body = msgText.join('');
+                                opts.log('info', "Fetched message IMAP=" + m.id + //" POP=" + (results[m.id].number || "?") +
+                                                 " for " + imapservername(opts, username));
+                                ++count;
+                                if (count == resultList.length * 2) {
+                                    this_(null, Object.keys(results).map(function (k) { return results[k]; }));
+                                }
+                            })
+                            .on('error', this_);
+                        }).on('error', this_);
                     }
-                })
-                .on('error', this_);
-            }).on('error', this_);
-        })
+            });
+         })
         .unflatten()
         .seq(function (listOfMessageLists) {
             imap.logout(function (e) {
@@ -680,7 +691,7 @@ if (require.main === module) {
             opts.log = function (level, msg) {
                 if (level == 'error') mylog.error(msg);
                 else if (level == 'info') mylog.info(msg);
-                else assert(false, "Bad log level");
+                else assert.ok(false, "Bad log level");
             }
 
             process.on("uncaughtException", function (e) {
