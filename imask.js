@@ -398,7 +398,6 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .flatten()
         .parMap_(function (this_, id, index) {
             opts.log('info', "Fetching message " + id + " for " + imapservername(opts, username));
-            this.vars.id = id;
             imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
                 imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
                     var msgText = [];
