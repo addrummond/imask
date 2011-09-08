@@ -685,9 +685,9 @@ if (require.main === module) {
 
             process.on("uncaughtException", function (e) {
                 e.ignore = true;
-                opts.log('error', "Uncaught exception (ignoring): " + util.inspect(e, false, 5) + " -- " +
-                                  "this should not happen (may indicate a bug in imask or a library that " +
-                                  "it uses)");
+                opts.log('error', "Uncaught exception (ignoring): " + util.inspect(e.stack, true, 5) + " -- " +
+                                  "this should not happen, server may now be in an undefined state and " +
+                                  "should be restarted.");
             });
 
             opts.log('info', "Imask started");
