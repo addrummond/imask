@@ -29,7 +29,7 @@ The configuration file is a JSON dictionary, e.g.:
                 "imapUseSSL": false,
                 "imapUsername": "my_email_username",
                 "imapPassword": "my_email_password",
-                "imapMailbox": "INBOX",
+                "imapMailboxes": ["INBOX", "Some mailing list"],
                 "imapPollIntervalSeconds": 180,
                 "imapReadOnly": false,
                 "imapMessageAgeLimitDays": 30
@@ -41,7 +41,7 @@ The configuration file is a JSON dictionary, e.g.:
                 "imapUseSSL": true,
                 "imapUsername": "my_email_username",
                 "imapPassword": "my_email_password",
-                "imapMailbox": "INBOX",
+                "imapMailboxes": ["INBOX"],
                 "imapPollIntervalSeconds": 180,
                 "imapReadOnly": false,
                 "imapMessageAgeLimitDays": 30
@@ -96,8 +96,3 @@ provide a POP server for GMail to poll. (Although, if you have your
 own server, you should also be able to use fetchmail to download mail
 from the IMAP server and then pass it on to GMail's SMTP server -- I
 got bored trying to make this work.)
-
-Limitations
-===========
-Currently, imask can only retrieve messages from one mailbox of the
-IMAP server. This limitation will hopefully be removed shortly.
