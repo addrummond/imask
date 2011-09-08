@@ -42,8 +42,7 @@ function getMessageOctetSize(message) {
 
 function writeByteStuffed(socket, string, callback) {
     var lines = string.split('\n');
-    Seq()
-        .extend(lines)
+    Seq(lines)
         .forEach(function (line) {
             if (line.length && line.charAt(0) == '.') {
                 socket.write('.' + line + '\n', this);
@@ -624,8 +623,7 @@ Imask.prototype.start = function (callback) {
     var self = this, opts = this.opts;
 
     opts.log('info', "Performing initial poll of IMAP accounts...");
-    Seq()
-        .extend(Object.keys(opts.accounts))
+    Seq(Object.keys(opts.accounts))
         .parEach_(function (this_, username) {
             self._pollImap(username, function (e, messages) {
                 if (e) {
