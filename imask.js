@@ -749,3 +749,5 @@ if (require.main === module) {
         }
     });
 }
+
+exports.Imask = Imask
