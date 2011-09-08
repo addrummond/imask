@@ -366,13 +366,9 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
     });
     imap.on('error', callback);
 
+    var total = 0;
     Seq()
         .seq(function () { imap.connect(this); })
-        .seq(function () { imap.getBoxes(this); })
-        .seq(function (boxes) {
-            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
-            imap.openBox(opts.accounts[username].imapMailbox, opts.accounts[username].imapReadOnly, this);
-        })
         .seq_(function (this_) {
             // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
@@ -389,30 +385,83 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             }
             else this_();
         })
-        .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
-                                       : 'UNSEEN', this); })
-        .seq(function (xs) {
-            opts.log('info', "Fetching " + xs.length + " messages for " + imapservername(opts, username) + " ...");
-            this(null, xs);
+        .seq(function () { imap.getBoxes(this); })
+        .seq(function (boxes) {
+            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
+            this();
         })
-        .flatten()
-        .parMap_(function (this_, id, index) {
-            opts.log('info', "Fetching message " + id + " for " + imapservername(opts, username));
-            imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
-                imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
-                    var msgText = [];
-                    m2.on('data', function (chunk) {
-                        msgText.push(chunk);
-                    });
-                    m2.on('end', function () {
-                        this_(null, { number: index+1, message: m, body: msgText.join('') });
-                    });
-                });
+        .extend(opts.accounts[username].imapMailboxes)
+        .parMap_(function (this_, box) {
+            imap.openBox(box, opts.accounts[username].imapReadOnly, function (e) {
+                if (e) this_(e);
+                else imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]] : ['UNSEEN'], this_);
             });
         })
         .unflatten()
-        .seq(function (messages) {
-            imap.logout(function (e) { callback(e, messages); });
+        .seq(function (resultsLists) {
+            resultsLists.forEach(function (x) { total += x.length; });
+
+            opts.log('info', "Fetching " + total + " messages for " + imapservername(opts, username) + "...");
+            this.vars.currentPopMessageId = 1;
+
+            var rsWithBaseId = [];
+            var lastBase = 0;
+            resultsLists.forEach(function (resultList) {
+                rsWithBaseId.push([resultList, lastBase]);
+                lastBase += resultList.length;
+            });
+            this(null, rsWithBaseId);
+        })
+        .flatten(false)
+        .parMap_(function (this_, resultListPr) {
+            var resultList = resultListPr[0];
+            var base = resultListPr[1];
+//            resultList = resultList.slice(0, 10);
+
+            var results = { }; // Keyed by IMAP id.
+            var count = 0;
+            var currentMsgNum = 1;
+            // Get headers.
+            imap.fetch(resultList, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
+                ++count;
+                m.on('end', function () {
+                    if (typeof(results[m.id]) == "undefined") results[m.id] = { };
+                    results[m.id].message = m;
+                })
+                .on('error', this_);
+            }).on('error', function (e) { this_(e); });
+            // Get bodies.
+            imap.fetch(resultList, { request: { headers: false, body: true, struct: false }}).on('message', function (m) {
+                var msgText = [];
+                m.on('data', function (chunk) { msgText.push(chunk); })
+                .on('end', function () {
+                    if (typeof(results[m.id]) == "undefined") results[m.id] = { };
+                    results[m.id].number = base + currentMsgNum++;
+                    results[m.id].body = msgText.join('');
+                    opts.log('info', "Fetched message IMAP=" + m.id + //" POP=" + (results[m.id].number || "?") +
+                                     " for " + imapservername(opts, username));
+                    ++count;
+                    if (count == resultList.length * 2) {
+                        this_(null, Object.keys(results).map(function (k) { return results[k]; }));
+                    }
+                })
+                .on('error', this_);
+            }).on('error', this_);
+        })
+        .unflatten()
+        .seq(function (listOfMessageLists) {
+            imap.logout(function (e) {
+                // As far as I know, there's no good way of flattening an array in JS
+                // (could apply concat, but not robust for big arrays).
+                var flatl = new Array(total);
+                var i = 0;
+                for (var j = 0; j < listOfMessageLists.length; ++j) {
+                    for (var k = 0; k < listOfMessageLists[j].length; ++k) {
+                        flatl[i++] = listOfMessageLists[j][k];
+                    }
+                }
+                callback(e, flatl)
+            });
         })
         .catch(callback);
 }
@@ -433,7 +482,10 @@ Imask.prototype._pollImap = function(username, callback) {
 
     this._retrieveFromImap(
         username,
-        xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date()),
+        opts.accounts[username].imapMessageAgeLimitDays
+            ? xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date())
+            : null
+        ,
         function (e, messages_) {
             if (e) {
                 self.imapIsBeingPolled[username] = false;
@@ -618,6 +670,13 @@ if (require.main === module) {
                 else if (level == 'info') mylog.info(msg);
                 else assert(false, "Bad log level");
             }
+
+            process.on("uncaughtException", function (e) {
+                e.ignore = true;
+                opts.log('error', "Uncaught exception (ignoring): " + util.inspect(e, false, 5) + " -- " +
+                                  "this should not happen (may indicate a bug in imask or a library that " +
+                                  "it uses)");
+            });
 
             opts.log('info', "Imask started");
 
