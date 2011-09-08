@@ -672,7 +672,7 @@ if (require.main === module) {
                 else assert(false, "Bad log level");
             }
 
-            process.addListener("uncaughtException", function (e) {
+            process.on("uncaughtException", function (e) {
                 e.ignore = true;
                 opts.log('error', "Uncaught exception (ignoring): " + util.inspect(e, false, 5) + " -- " +
                                   "this should not happen (may indicate a bug in imask or a library that " +
