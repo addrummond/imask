@@ -21,13 +21,13 @@ Netlog.prototype.linesInOrder = function () {
     var olines = new Array(this.wrapped ? this.opts.maxLines : this.currentLine);
     var count = 0;
     if (this.wrapped) {
-        for (var i = this.opts.maxLines-1; i >= this.currentLine; --i)
+        for (var i = this.currentLine; i < this.opts.maxLines; ++i)
             olines[count++] = this.lines[i];
     }
     for (var i = 0; i < this.currentLine; ++i)
         olines[count++] = this.lines[i];
     
-    return olines.slice(0, count);
+    return olines;
 };
 
 Netlog.prototype.start = function (callback) {
@@ -54,7 +54,7 @@ Netlog.prototype.start = function (callback) {
             res.redirect('/login');
         }
         else {
-            res.render('logs.jade', { title: "Logs", lines: self.linesInOrder() });
+            res.render('logs.jade', { title: "Logs", lines: self.linesInOrder().reverse() });
         }
     });
     this.app.get('/login', function (req, res) {
