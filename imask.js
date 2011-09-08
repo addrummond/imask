@@ -402,6 +402,10 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             resultsLists.forEach(function (x) { total += x.length; });
 
             opts.log('info', "Fetching " + total + " messages for " + imapservername(opts, username) + "...");
+            if (total == 0) { // Shortcut to make this common case more efficient.
+                this('nothingtodo');
+                return;
+            }
 
             var rsWithBaseId = [];
             var lastBase = 0;
@@ -466,7 +470,12 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                 callback(e, flatl)
             });
         })
-        .catch(callback);
+        .catch(function (e) {
+            if (e == 'nothingtodo')
+                callback(null, []);
+            else
+                callback(e);
+        });
 }
 
 function xDaysBefore(x, date) {
