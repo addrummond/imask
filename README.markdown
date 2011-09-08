@@ -49,11 +49,12 @@ The configuration file is a JSON dictionary, e.g.:
         }
     }
 
-The `popUseSSL` key can be set to true to have the POP server use
-SSL. If the `imapUseSSL` key is set to true, imask attempts to connect
-to the IMAP server over SSL. If no log file is specified, imask logs
-to stdout and stderr. Once the configuration file is set up imask can
-be started as follows:
+Lines beggining with # are stripped prior to the JSON parse. The
+`popUseSSL` key can be set to true to have the POP server use SSL. If
+the `imapUseSSL` key is set to true, imask attempts to connect to the
+IMAP server over SSL. If no log file is specified, imask logs to
+stdout and stderr. Once the configuration file is set up imask can be
+started as follows:
 
     node imask.js
 

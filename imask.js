@@ -585,7 +585,15 @@ if (require.main === module) {
             process.exit(1);
         }
         else {
-            try { opts = JSON.parse(buffer); }
+            // Strip '#' comments.
+            var lines = buffer.toString('utf-8').split('\n');
+            var newlines = [];
+            lines.forEach(function (l) {
+                if (! l.match(/^\s*#.*$/))
+                    newlines.push(l);
+            });
+            var configstring = newlines.join('\n');
+            try { opts = JSON.parse(configstring); }
             catch (err) {
                 console.error("Error parsing configuration file " + config + " as JSON -- " + err);
                 process.exit(1);
