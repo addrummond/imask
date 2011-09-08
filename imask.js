@@ -723,7 +723,7 @@ if (require.main === module) {
             if (opts.webLogsUsername) {
                 var Netlog = require('./netlog').Netlog;
                 netlog = new Netlog({
-                    port: opts.webLogsPort || 50,
+                    port: opts.webLogsPort || 3000,
                     key: fs.readFileSync(opts.webLogsSSLKeyFile.replace("~", home)),
                     cert: fs.readFileSync(opts.webLogsSSLCertFile.replace("~", home)),
                     ca: opts.webLogsSSLCaFiles ?
@@ -732,7 +732,7 @@ if (require.main === module) {
                         }) : undefined,
                     username: opts.webLogsUsername,
                     password: opts.webLogsPassword,
-                    maxLines: 5
+                    maxLines: opts.webLogsMaxLines || 50
                 });
                 
                 netlog.start();

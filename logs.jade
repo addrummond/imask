@@ -1,5 +1,7 @@
+p
+  [Newest first.]
 table
-  each line in lines
+  each line in lines.reverse()
     tr
       th(width="280pt")= line.date
       th(width="80pt")= line.level

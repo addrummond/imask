@@ -2,7 +2,7 @@ var express = require('express');
 
 function Netlog(opts) {
     this.opts = opts;
-    this.opts.maxLines = this.opts.maxLines ? this.opts.maxLines : 500;
+    this.opts.maxLines = this.opts.maxLines ? this.opts.maxLines : 50;
     this.lines = new Array(this.opts.maxLines);
     this.currentLine = 0;
     this.wrapped = false;
@@ -21,13 +21,13 @@ Netlog.prototype.linesInOrder = function () {
     var olines = new Array(this.wrapped ? this.opts.maxLines : this.currentLine);
     var count = 0;
     if (this.wrapped) {
-        for (var i = this.opts.maxLines-1; i > this.currentLine; --i)
+        for (var i = this.opts.maxLines-1; i >= this.currentLine; --i)
             olines[count++] = this.lines[i];
     }
     for (var i = 0; i < this.currentLine; ++i)
         olines[count++] = this.lines[i];
     
-    return olines;
+    return olines.slice(0, count);
 };
 
 Netlog.prototype.start = function (callback) {
