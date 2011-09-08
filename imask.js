@@ -718,13 +718,39 @@ if (require.main === module) {
                 seen[opts.accounts[popUsername].imapUsername + '@' + opts.accounts[popUsername].imapHost] = true;
             }
 
+            // Start the web-accessible logging server if specified.
+            var netlog = null;
+            if (opts.webLogsUsername) {
+                var Netlog = require('./netlog').Netlog;
+                netlog = new Netlog({
+                    port: opts.webLogsPort || 50,
+                    key: fs.readFileSync(opts.webLogsSSLKeyFile.replace("~", home)),
+                    cert: fs.readFileSync(opts.webLogsSSLCertFile.replace("~", home)),
+                    ca: opts.webLogsSSLCaFiles ?
+                        opts.webLogsSSLCaFiles.map(function (f) {
+                            fs.readFileSync(f.replace("~", home));
+                        }) : undefined,
+                    username: opts.webLogsUsername,
+                    password: opts.webLogsPassword,
+                    maxLines: 5
+                });
+                
+                netlog.start();
+            }
+
             var mylog = new Log(Log.INFO,
                                 opts.logFile
                                     ? fs.createWriteStream(opts.logFile.replace("~", home), { flags: 'a' })
                                     : undefined);
             opts.log = function (level, msg) {
-                if (level == 'error') mylog.error(msg);
-                else if (level == 'info') mylog.info(msg);
+                if (level == 'error') {
+                    mylog.error(msg);
+                    if (netlog) netlog.addLogLine('error', new Date(), msg);
+                }
+                else if (level == 'info') {
+                    mylog.info(msg);
+                    if (netlog) netlog.addLogLine('info', new Date(), msg);
+                }
                 else assert.ok(false, "Bad log level");
             }
 
