@@ -402,7 +402,6 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             resultsLists.forEach(function (x) { total += x.length; });
 
             opts.log('info', "Fetching " + total + " messages for " + imapservername(opts, username) + "...");
-            this.vars.currentPopMessageId = 1;
 
             var rsWithBaseId = [];
             var lastBase = 0;
