@@ -391,7 +391,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             this();
         })
         .extend(opts.accounts[username].imapMailboxes)
-        .parMap_(function (this_, box) {
+        .seqMap_(function (this_, box) {
             imap.openBox(box, opts.accounts[username].imapReadOnly, function (e) {
                 if (e) this_(e);
                 else imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]] : ['UNSEEN'], this_);
