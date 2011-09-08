@@ -1,8 +1,6 @@
 Node.js program that masks an IMAP server behind a simple POP3 server.
 
-Requires the `seq` and `imap` modules. I recommend the latest git version
-of the `imap` module, since it has some bugfixes which are not yet in
-the npm repo.
+Requires the `seq` and `imap` modules.
 
 Setting up a server
 ===================
