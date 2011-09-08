@@ -416,7 +416,11 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         .parMap_(function (this_, resultListPr) {
             var resultList = resultListPr[0];
             var base = resultListPr[1];
-//            resultList = resultList.slice(0, 10);
+
+            if (resultList.length == 0) {
+                this_(null, []);
+                return;
+            }
 
             var results = { }; // Keyed by IMAP id.
             var count = 0;
