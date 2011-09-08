@@ -48,7 +48,14 @@ The configuration file is a JSON dictionary, e.g.:
                 "imapReadOnly": false,
                 "imapMessageAgeLimitDays": 30
             },
-        }
+        },
+
+        "webLogsUsername": "choose_a_username",
+        "webLogsPassword": "choose_a_password",
+        "webLogsPort": 5000,
+        "webLogsMaxLines": 50,
+        "webLogsSSLKeyFile": "~/server-key.pem",
+        "webLogsSSLCertFile": "~/server-cert.pem"
     }
 
 Lines beggining with # are stripped prior to the JSON parse. The
@@ -90,6 +97,14 @@ GMail's POP client, this appears to work.
 
 Imask stores everything in memory and does not write anything to
 disk.
+
+Web accessible logs
+===================
+If the `webLogs*` options are set, imask provides https access to
+recent log entries. The number of lines stored is determined by
+`webLogsMaxLines`. Lines are stored in memory, so this value should
+not be enormous. To view the logs, access the http server at the
+specified port, which will present a login form.
 
 Why you might want this
 =======================
