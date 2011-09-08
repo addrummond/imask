@@ -720,10 +720,11 @@ if (require.main === module) {
 
             // Start the web-accessible logging server if specified.
             var netlog = null;
+            var webLogsDefaultPort = 3000;
             if (opts.webLogsUsername) {
                 var Netlog = require('./netlog').Netlog;
                 netlog = new Netlog({
-                    port: opts.webLogsPort || 3000,
+                    port: opts.webLogsPort || webLogsDefaultPort,
                     key: fs.readFileSync(opts.webLogsSSLKeyFile.replace("~", home)),
                     cert: fs.readFileSync(opts.webLogsSSLCertFile.replace("~", home)),
                     ca: opts.webLogsSSLCaFiles ?
@@ -753,6 +754,8 @@ if (require.main === module) {
                 }
                 else assert.ok(false, "Bad log level");
             }
+
+            if (netlog) opts.log('info', 'Started web logging server on ' + (opts.webLogsPort || webLogsDefaultPort));
 
             var imask = new Imask(opts);
 
