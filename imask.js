@@ -366,16 +366,13 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
     });
     imap.on('error', callback);
 
+    console.log("HERE");
     Seq()
-        .seq(function () { imap.connect(this); })
-        .seq(function () { imap.getBoxes(this); })
-        .seq(function (boxes) {
-            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
-            imap.openBox(opts.accounts[username].imapMailbox, opts.accounts[username].imapReadOnly, this);
-        })
+        .seq(function () { console.log("XXX"); imap.connect(this); })
         .seq_(function (this_) {
             // Mark those messages as seen which were retrieved via the POP server
             // at some earlier point.
+            console.log("!!!!!!");
             if (!opts.accounts[username].imapReadOnly && self.imapMessageIdsToBeMarkedSeen[username].length) {
                 opts.log('info', "Marking messages as seen for " + imapservername(opts, username));
                 imap.addFlags(self.imapMessageIdsToBeMarkedSeen[username], 'Seen', function (e) {
@@ -389,31 +386,74 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             }
             else this_();
         })
-        .seq(function () { imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]]
-                                       : 'UNSEEN', this); })
-        .seq(function (xs) {
-            opts.log('info', "Fetching " + xs.length + " messages for " + imapservername(opts, username) + " ...");
-            this(null, xs);
+        .seq(function () { imap.getBoxes(this); })
+        .seq(function (boxes) {
+            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
+            this();
         })
-        .flatten()
-        .parMap_(function (this_, id, index) {
-            opts.log('info', "Fetching message " + id + " for " + imapservername(opts, username));
-            this.vars.id = id;
-            imap.fetch(id, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
-                imap.fetch(id, { request: { headers: false, body: true, struct: false }}).on('message', function (m2) {
-                    var msgText = [];
-                    m2.on('data', function (chunk) {
-                        msgText.push(chunk);
-                    });
-                    m2.on('end', function () {
-                        this_(null, { number: index+1, message: m, body: msgText.join('') });
-                    });
-                });
+        .extend(opts.accounts[username].imapMailboxes)
+        .parMap_(function (this_, box) {
+            imap.openBox(box, opts.accounts[username].imapReadOnly, function (e) {
+                console.log("OPENED " + box);
+                if (e) this_(e);
+                else imap.search(sinceDateString ? ['UNSEEN', ['SINCE', sinceDateString]] : ['UNSEEN'], this_);
             });
         })
         .unflatten()
-        .seq(function (messages) {
-            imap.logout(function (e) { callback(e, messages); });
+        .seq(function (resultsLists) {
+            console.log("THERE");
+            console.log(typeof(resultsLists));
+            var total = 0;
+            resultsLists.forEach(function (x) { total += x.length; });
+
+            opts.log('info', "Fetching " + total + " messages for " + imapservername(opts, username) + "...");
+            this.vars.currentPopMessageId = 1;
+
+            var rsWithBaseId = [];
+            var lastBase = 0;
+            resultsLists.forEach(function (resultList) {
+                rsWithBaseId.push([resultList, lastBase]);
+                lastBase += resultList.length;
+            });
+            this(null, rsWithBaseId);
+        })
+        .flatten(false)
+        .parMap_(function (this_, resultListPr) {
+            var resultList = resultListPr[0];
+            var base = resultListPr[1];
+
+            var results = { }; // Keyed by IMAP id.
+            var count = 0;
+            // Get headers.
+            imap.fetch(resultList, { request: { headers: true, body: false, struct: false }}).on('message', function (m) {
+                m.on('message', function (m) {
+                    if (! results[m.id]) results[m.id] = { };
+                    results[m.id].number = base + index;
+                    results[m.id].message = m;
+                    ++count;
+                });
+            });
+            // Get bodies.
+            imap.fetch(resultList, { request: { headers: false, body: true, struct: false }}).on('message', function (m) {
+                console.log("FETHC");
+                m.on('message', function (m) {
+                    var msgText = [];
+                    m.on('data', function (chunk) { msgText.push(chunk); });
+                    m.on('end', function () {
+                        if (! results[m.id]) results[m.id] = { };
+                        results[m.id].body = msgText.join('');
+                        console.log(results[m.id].body);
+                        ++count;
+                        if (count == resultList.length * 2) {
+                            this_(null, Object.keys(results).map(function (k) { return results[k]; }));
+                        }
+                    });
+                }).on('error', callback);
+            });
+        })
+        .unflatten()
+        .seq(function (listOfMessageLists) {
+            imap.logout(function (e) { callback(e, [].concat.apply(listOfMessageLists)); });
         })
         .catch(callback);
 }
@@ -434,8 +474,12 @@ Imask.prototype._pollImap = function(username, callback) {
 
     this._retrieveFromImap(
         username,
-        xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date()),
+        opts.accounts[username].imapMessageAgeLimitDays
+            ? xDaysBefore(opts.accounts[username].imapMessageAgeLimitDays, new Date())
+            : null
+        ,
         function (e, messages_) {
+            console.log("MS: " + messages_);
             if (e) {
                 self.imapIsBeingPolled[username] = false;
                 callback(e)
@@ -586,7 +630,16 @@ if (require.main === module) {
             process.exit(1);
         }
         else {
-            try { opts = JSON.parse(buffer); }
+            // Strip '#' comments.
+            var lines = buffer.toString('utf-8').split('\n');
+            var newlines = [];
+            lines.forEach(function (l) {
+                if (! l.match(/^\s*#.*$/))
+                    newlines.push(l);
+            });
+            var configstring = newlines.join('\n');
+
+            try { opts = JSON.parse(configstring); }
             catch (err) {
                 console.error("Error parsing configuration file " + config + " as JSON -- " + err);
                 process.exit(1);
