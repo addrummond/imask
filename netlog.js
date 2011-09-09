@@ -17,7 +17,7 @@ Netlog.prototype.addLogLine = function (level, date, line) {
     this.lines[this.currentLine++] = { level: level, date: date.toUTCString(), line: line };
 }
 
-Netlog.prototype.linesInOrder = function () {
+Netlog.prototype._linesInOrder = function () {
     var olines = new Array(this.wrapped ? this.opts.maxLines : this.currentLine);
     var count = 0;
     if (this.wrapped) {
@@ -54,7 +54,7 @@ Netlog.prototype.start = function (callback) {
             res.redirect('/login');
         }
         else {
-            res.render('logs.jade', { title: "Logs", lines: self.linesInOrder().reverse() });
+            res.render('logs.jade', { title: "Logs", lines: self._linesInOrder().reverse() });
         }
     });
     this.app.get('/login', function (req, res) {
