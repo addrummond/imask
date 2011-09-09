@@ -7,6 +7,15 @@ var net = require('net'),
     Log = require('log'),
     assert = require('assert');
 
+// Hack to allow specifying date/time explicitly with 'log' module.
+Log.prototype.log_with_date = function (date, levelStr, args) {
+    var oldDate = Date;
+    Date = function () { return date; };
+    var r = this.log(levelStr, args);
+    Date = oldDate;
+    return r;
+};
+
 function getFirstWord(s) {
     var a = s.split(/\s+/);
     return [a[0], a.slice(1).join(' ')];
@@ -744,13 +753,14 @@ if (require.main === module) {
                                     ? fs.createWriteStream(opts.logFile.replace("~", home), { flags: 'a' })
                                     : undefined);
             opts.log = function (level, msg) {
+                var d = new Date();
                 if (level == 'error') {
-                    mylog.error(msg);
-                    if (netlog) netlog.addLogLine('error', new Date(), msg);
+                    mylog.log_with_date(d, 'ERROR', [msg]);
+                    if (netlog) netlog.addLogLine('error', d, msg);
                 }
                 else if (level == 'info') {
-                    mylog.info(msg);
-                    if (netlog) netlog.addLogLine('info', new Date(), msg);
+                    mylog.log_with_date(d, 'INFO', [msg]);
+                    if (netlog) netlog.addLogLine('info', d, msg);
                 }
                 else assert.ok(false, "Bad log level");
             }
