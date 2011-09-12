@@ -43,7 +43,8 @@ Netlog.prototype.start = function (callback) {
     this.app.use(express.cookieParser());
     this.app.use(express.session({ secret: "A secret phrase" }));
     this.app.set('view engine', 'jade');
-    this.app.set('views', __dirname)
+    this.app.set('views', __dirname);
+    this.app.use(express.static(__dirname + '/static'));
 
     this.app.get('/', function (req, res) {
         if (req.session.loggedIn) res.redirect('/logs');
@@ -58,7 +59,7 @@ Netlog.prototype.start = function (callback) {
         }
     });
     this.app.get('/login', function (req, res) {
-        res.render('login.jade', { title: "Admin login" });
+        res.render('login.jade', { title: "Admin login", includes: ['login.js'] });
     });
     this.app.post('/login', function (req, res) {
         if (req.body.username == opts.username && req.body.password == opts.password) {
