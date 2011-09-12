@@ -424,11 +424,6 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             }
             else this_();
         })
-        .seq(function () { imap.getBoxes(this); })
-        .seq(function (boxes) {
-            opts.log('info', 'Mailboxes for ' + imapservername(opts,username) + ': ' + mailboxlist(boxes));
-            this();
-        })
         .extend(opts.accounts[username].imapMailboxes)
         .seqMap_(function (this_, box) {
             imap.openBox(box, opts.accounts[username].imapReadOnly, function (e) {
