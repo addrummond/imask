@@ -549,8 +549,8 @@ Imask.prototype._pollImap = function(username, callback) {
             : null
         ,
         function (e, messages_) {
+            self.imapIsBeingPolled[username] = false;
             if (e) {
-                self.imapIsBeingPolled[username] = false;
                 callback(e)
             }
             else {
@@ -559,14 +559,10 @@ Imask.prototype._pollImap = function(username, callback) {
                     messages[m.number] = m;
                 });
                 
-                if (e) {
-                    self.imapIsBeingPolled[username] = false;
+                if (e)
                     callback(e);
-                }
-                else {
-                    self.imapIsBeingPolled[username] = false;
+                else
                     callback(null, { messages: messages, deleted: { } });
-                }
             }
         }
     );
