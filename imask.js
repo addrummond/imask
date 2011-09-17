@@ -504,7 +504,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
                         }).on('error', this_);
                     }
             });
-         })
+        })
         .unflatten()
         .seq(function (listOfMessageLists) {
             imap.logout(function (e) {
