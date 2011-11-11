@@ -521,10 +521,16 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             });
         })
         .catch(function (e) {
-            if (e == 'nothingtodo')
-                callback(null, []);
-            else
-                callback(e);
+            imap.logout(function (e2) {
+                if (e == 'nothingtodo') {
+                    callback(e2, []);
+                }
+                else {
+                    // If there was an error logging out, this is probably a result
+                    // of the previous error (e), so we report e rather than e2.
+                    callback(e);
+                }
+            });
         });
 }
 
