@@ -564,7 +564,7 @@ Imask.prototype._pollImap = function(username, callback) {
                 messages_.forEach(function (m) {
                     messages[m.number] = m;
                 });
-                
+
                 if (e)
                     callback(e);
                 else
@@ -607,19 +607,24 @@ Imask.prototype._pollImapAgain = function (username, callback) {
         var msgno = 1;
         for (var i = 0; i < oldks.length; ++i) {
             if (! old[oldks[i]].retrieved) {
-                old[oldks[i]].message.number = msgno;
+                old[oldks[i]].number = msgno;
                 self.imapMessages[username].messages[msgno] = old[oldks[i]];
                 msgno++
             }
         }
         for (var i = 0; i < knewks.length; ++i) {
-            knew[knewks[i]].message.number = msgno;
+            knew[knewks[i]].number = msgno;
             self.imapMessages[username].messages[msgno] = knew[knewks[i]];
             msgno++;
         }
+        
         opts.log('info',
-                 "Now holding " + Object.keys(self.imapMessages[username].messages).length + " messages for " +
-                 imapservername(opts, username));
+                 "Now holding " + self.imapMessages[username].messages.length + " messages for " +
+                 imapservername(opts, username))
+
+        for (var i = 0; i < self.imapMessages[username].messages.length; ++i) {
+            opts.log('info', "XX: " + self.imapMessages[username].messages[i].number + " : " + self.imapMessages[username].messages[i].message.date);
+        }
 
         callback();
     });
@@ -631,13 +636,16 @@ Imask.prototype.start = function (callback) {
     opts.log('info', "Performing initial poll of IMAP accounts...");
     Seq(Object.keys(opts.accounts))
         .parEach_(function (this_, username) {
-            self._pollImap(username, function (e, messages) {
+            self._pollImap(username, function (e, messagesAndDeleted) {
                 if (e) {
                     this_("Error polling IMAP server for " + imapservername(opts,username) + ':' + util.inspect(e));
                 }
                 else {
                     opts.log('info', "Finished polling IMAP server for " + imapservername(opts,username));
-                    self.imapMessages[username] = messages;
+                    opts.log('info',
+                             "Now holding " + Object.keys(messagesAndDeleted.messages).length + " messages for " +
+                             imapservername(opts, username));
+                    self.imapMessages[username] = messagesAndDeleted;
                     this_();
                 }
             });
