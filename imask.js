@@ -619,7 +619,7 @@ Imask.prototype._pollImapAgain = function (username, callback) {
         }
         
         opts.log('info',
-                 "Now holding " + self.imapMessages[username].messages.length + " messages for " +
+                 "Now holding " + msgno + " messages for " +
                  imapservername(opts, username))
 
         for (var i = 0; i < self.imapMessages[username].messages.length; ++i) {
