@@ -272,7 +272,7 @@ Imask.prototype._dispatchPopCommand = function (socket, socketState, p, callback
                         if (typeof(p.messageNumber) != "undefined") {
                             var m = this.imapMessages[username].messages[p.messageNumber];
                             if (! m) socket.write('-ERR Bad message number\r\n', callback);
-                            else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id, callback);
+                            else socket.write('+OK ' + p.messageNumber + ' ' + m.message.id + "\r\n", callback);
                         }
                         else {
                             Seq()
