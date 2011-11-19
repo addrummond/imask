@@ -51,15 +51,13 @@ function getMessageOctetSize(message) {
 
 function writeByteStuffed(socket, string, callback) {
     var lines = string.split('\n');
-    Seq(lines)
-        .forEach(function (line) {
-            if (line.length && line.charAt(0) == '.') {
-                socket.write('.' + line + '\n', this);
-            }
-            else {
-                socket.write(line + '\n');
-            }
-        })
+    for (var i = 0; i < lines.length; ++i) {
+        if (lines[i].length && lines[i].charAt(0) == '.') {
+            lines[i] = "." + lines[i];
+        }
+    }
+    Seq()
+        .seq(function () { socket.write(lines.join('\n'), this); })
         .seq(function () { socket.write('\r\n.\r\n', this); })
         .seq(callback)
         .catch(callback);
