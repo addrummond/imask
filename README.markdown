@@ -93,7 +93,7 @@ retrieved via the pop server the last time it was run.) In the case of
 GMail's POP client, this appears to work.
 
 Imask stores everything in memory and does not write anything to
-disk.
+disk (except the log file).
 
 Web accessible logs
 ===================
