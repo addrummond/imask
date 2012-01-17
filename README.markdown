@@ -2,7 +2,6 @@ Node.js program that masks an IMAP server behind a simple POP3 server.
 
 Requires the `imap` module (amongst others).
 
-
 Setting up a server
 ===================
 
