@@ -375,7 +375,7 @@ ImapConnection.prototype.safeLogout = function (callback) {
         else
             throw e;
     }
-}
+};
 
 Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback) {
     var self = this, opts = this.opts;
@@ -559,7 +559,7 @@ Imask.prototype._pollImap = function(username, callback) {
     var self = this, opts = this.opts;
     var messages = { }; // Keyed by POP message number.
 
-    this.imapIsBeingPolled[username] = true;
+    this.imapIsBeingPolled[username] = new Date().getTime();
     opts.log('info', "Polling the IMAP server for " + imapservername(opts, username) + " ...");
 
     this._retrieveFromImap(
@@ -590,8 +590,13 @@ Imask.prototype._pollImap = function(username, callback) {
 
 Imask.prototype._pollImapAgain = function (username, callback) {
     var self = this, opts = this.opts;
+    // Sometimes failed attempts to retreive messages never seem to lead to an
+    // error callback. So, once 10 minutes has passed, we assume that the
+    // theoretically still-current polling operation has finished.
+    var TRY_AGAIN_INTERVAL_MS = 10 * 60 * 1000;
 
-    if (this.imapIsBeingPolled[username]) {
+    if (this.imapIsBeingPolled[username] &&
+        new Date().getTime() - this.imapIsBeingPolled[username] < TRY_AGAIN_INTERVAL_MS) {
         opts.log('info', "Attempt to poll IMAP server for " +
                  imapservername(opts, username) +
                  " while polling already underway");
