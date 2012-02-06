@@ -361,7 +361,7 @@ function mailboxlist(boxes, prefix, list) {
     return list.map(function (x) { return '"' + x + '"'; }).join(', ');
 }
 
-// The imask library likes to throw an exception if you try to log out when the
+// The imap library likes to throw an exception if you try to log out when the
 // socket is not connected. But it doesn't provide a public interface to check
 // if the socket is still connected. So, this function wraps logout with a catch
 // statement, which passes on the exception as a normal node error.
