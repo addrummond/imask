@@ -365,15 +365,17 @@ function mailboxlist(boxes, prefix, list) {
 // socket is not connected. But it doesn't provide a public interface to check
 // if the socket is still connected. So, this function wraps logout with a catch
 // statement, which passes on the exception as a normal node error.
-ImapConnection.prototype.safeLogout = function (callback) {
+ImapConnection.prototype.safeLogout = function (opts, callback) {
     try {
         this.logout(callback);
     }
     catch (e) {
-        if (e.message == "Not connected.")
+        if (e.message == "Not connected")
             callback(e);
-        else
+        else {
+            opts.log('error', "safeLogout: Error was " + JSON.toString(e));
             throw e;
+        }
     }
 };
 
@@ -521,7 +523,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
         })
         .unflatten()
         .seq(function (listOfMessageLists) {
-            imap.safeLogout(function (e) {
+            imap.safeLogout(opts, function (e) {
                 // As far as I know, there's no good way of flattening an array in JS
                 // (could apply concat, but not robust for big arrays).
                 var flatl = new Array(total);
@@ -535,7 +537,7 @@ Imask.prototype._retrieveFromImap = function(username, sinceDateString, callback
             });
         })
         .catch(function (e) {
-            imap.safeLogout(function (e2) {
+            imap.safeLogout(opts, function (e2) {
                 if (e == 'nothingtodo') {
                     callback(e2, []);
                 }
