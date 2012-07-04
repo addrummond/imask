@@ -680,7 +680,7 @@ Imask.prototype.start = function (callback) {
                             cert: fs.readFileSync(opts.popSSLCertFile.replace("~", home)),
                             ca: opts.popSSLCaFiles ?
                                 opts.popSSLCaFiles.map(function (f) {
-                                    fs.readFileSync(f.replace("~", home));
+                                    return fs.readFileSync(f.replace("~", home));
                                 }) : undefined
                         }, callback);
                     }
