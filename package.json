@@ -22,7 +22,7 @@
     "commander": ">=0.1.0 <0.2",
     "chainsaw": ">=0.1.0 <0.2",
     "abbrev": ">=1.0.3 <1.1",
-    "hashish": ">=0.0.4 <0.1",
+    "hashish": ">=0.0.4 <0.1"
   },
   "devDependencies": {}
 }
